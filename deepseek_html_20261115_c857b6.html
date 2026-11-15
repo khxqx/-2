@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Василиса: Империя v3</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #05030a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fff; user-select: none; touch-action: manipulation; }
+  
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 520px; margin: 0 auto; position: relative; overflow: hidden; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  #app.night { background: linear-gradient(180deg, #150e2a 0%, #05030a 100%); }
+  
+  #fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+
+  .header { padding: 12px 18px 6px; text-align: center; position: relative; z-index: 10; }
+  .stage-name { font-size: 16px; font-weight: 900; letter-spacing: 0.5px; background: linear-gradient(90deg, #ffd966, #ff8ac4, #a78bff); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 10px rgba(255,138,196,0.5)); }
+  .progress { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.1); margin-top: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; border-radius: 6px; background: linear-gradient(90deg, #ff8ac4, #ffd966); box-shadow: 0 0 15px rgba(255,138,196,0.8); transition: width 0.4s; }
+  .hdr-btn { position: absolute; width: 36px; height: 36px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 15; backdrop-filter: blur(10px); }
+  #soundBtn { right: 14px; top: 10px; }
+  #musicBtn { right: 58px; top: 10px; }
+
+  .score-area { text-align: center; padding: 6px 18px 0; z-index: 10; }
+  .score-value { font-size: 48px; font-weight: 900; letter-spacing: -1.5px; line-height: 1; background: linear-gradient(180deg, #fff, #e0c8ff); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 25px rgba(167,139,255,0.6)); transition: transform 0.08s; }
+  .score-value.bump { transform: scale(1.1); }
+  .score-label { font-size: 12px; color: rgba(255,255,255,0.5); font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+  .badges { display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+  .badge { padding: 4px 12px; font-size: 12px; font-weight: 800; border-radius: 20px; backdrop-filter: blur(5px); }
+  .badge-passive { color: #7effc0; background: rgba(126,255,192,0.15); border: 1px solid rgba(126,255,192,0.3); }
+  .badge-stars { color: #ffd966; background: rgba(255,217,102,0.15); border: 1px solid rgba(255,217,102,0.3); display: none; }
+  .badge-combo { color: #ff8ac4; background: rgba(255,138,196,0.15); border: 1px solid rgba(255,138,196,0.3); display: none; }
+
+  .tap-zone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 5; padding-bottom: 20px; }
+
+  .cat-wrapper { position: absolute; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 10; transition: all 0.4s; width: 90px; }
+  .cat-wrapper.left { left: 10px; }
+  .cat-wrapper.right { right: 10px; }
+  .cat-wrapper.hidden { opacity: 0; transform: scale(0.5); pointer-events: none; }
+  .cat { width: 75px; height: 95px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)) drop-shadow(0 0 5px rgba(255,255,255,0.3)); animation: catIdle 3.5s infinite; }
+  @keyframes catIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+  .cat.bounce { animation: catBounce 0.3s; }
+  @keyframes catBounce { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-15px) scale(1.1); } 100% { transform: translateY(0) scale(1); } }
+  .cat-btn { padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.2s; width: 100%; text-align: center; }
+  .cat-btn:active { transform: scale(0.9); }
+  .cat-btn.active { background: #ffd966; color: #000; border-color: #ffd966; box-shadow: 0 0 20px #ffd966; }
+
+  .tap-btn-container { position: relative; width: min(65vw, 260px); height: min(65vw, 260px); display: flex; align-items: center; justify-content: center; }
+  .tap-btn-glow { position: absolute; inset: -20px; border-radius: 50%; background: radial-gradient(circle, rgba(167,139,255,0.6) 0%, transparent 70%); filter: blur(20px); z-index: 0; pointer-events: none; animation: glowPulse 3s infinite; }
+  @keyframes glowPulse { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.05); opacity: 1; } }
+  .tap-btn { position: relative; width: 100%; height: 100%; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 0 0 6px rgba(167,139,255,0.1), 0 0 50px rgba(167,139,255,0.5), inset 0 0 40px rgba(255,255,255,0.1); cursor: pointer; transition: transform 0.08s; z-index: 1; background: transparent; overflow: hidden; }
+  .tap-btn-inner { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 30%, rgba(123,92,255,0.4) 0%, rgba(20,10,40,0.9) 70%, #0a0615 100%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; }
+  .tap-btn:active { transform: scale(0.94); }
+  .tap-btn.lvl-1 { box-shadow: 0 0 0 6px rgba(167,139,255,0.2), 0 0 60px rgba(167,139,255,0.8); border-color: rgba(167,139,255,0.6); }
+  .tap-btn.lvl-2 { box-shadow: 0 0 0 6px rgba(255,138,196,0.2), 0 0 70px rgba(255,138,196,0.8); border-color: rgba(255,138,196,0.8); }
+  .tap-btn.lvl-3 { box-shadow: 0 0 0 6px rgba(255,217,102,0.2), 0 0 80px rgba(255,217,102,0.9); border-color: rgba(255,217,102,1); }
+  .tap-btn.mania { animation: maniaPulse 0.4s infinite; }
+  @keyframes maniaPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255,184,0,0.3), 0 0 80px rgba(255,184,0,1); } }
+
+  .chars { display: flex; align-items: flex-end; justify-content: center; width: 100%; height: 100%; }
+  .char { display: flex; align-items: flex-end; justify-content: center; transition: all 0.4s; }
+  .char svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.7)); }
+  .char-v { width: 68%; height: 92%; }
+  .char-s { width: 0; height: 90%; opacity: 0; transform: scale(0.6) translateY(10px); }
+  .duo .char-v { width: 52%; height: 92%; }
+  .duo .char-s { width: 48%; opacity: 1; transform: scale(1) translateY(0); }
+  .char.bounce { animation: charBounce 0.28s ease-out; }
+  @keyframes charBounce { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-12px) scale(1.04); } 100% { transform: translateY(0) scale(1); } }
+
+  /* ============ SKIN VISIBILITY RULES ============ */
+  .shoes, .legs-clothes, .mermaid-tail, .swimwear, .acc-glasses, .acc-tie, .acc-crown, .acc-pearls, .cape, .acc-ball, .acc-drip, .acc-bow, .hair-back, .hair-front, .dress { display: none; }
+
+  /* Vasilisa default = schoolgirl */
+  .char-v.skin-v-0 .hair-back, .char-v.skin-v-0 .hair-front { display: block; fill: url(#v-hair-brown); }
+  .char-v.skin-v-0 .dress { display: block; fill: url(#v-dress-pink); }
+  .char-v.skin-v-0 .acc-bow { display: block; }
+  .char-v.skin-v-0 .legs-clothes.tights-white { display: block; }
+  .char-v.skin-v-0 .shoes.sneakers { display: block; }
+  .char-v.skin-v-0 .shoes.sneakers .shoe-color { fill: #2a5cff; }
+
+  /* Vasilisa student */
+  .char-v.skin-v-1 .hair-back, .char-v.skin-v-1 .hair-front { display: block; fill: url(#v-hair-blue); }
+  .char-v.skin-v-1 .dress { display: block; fill: url(#v-dress-blue); }
+  .char-v.skin-v-1 .acc-glasses { display: block; }
+  .char-v.skin-v-1 .legs-clothes.jeans { display: block; }
+  .char-v.skin-v-1 .shoes.sneakers { display: block; }
+  .char-v.skin-v-1 .shoes.sneakers .shoe-color { fill: #e63939; }
+
+  /* Vasilisa CEO */
+  .char-v.skin-v-2 .hair-back, .char-v.skin-v-2 .hair-front { display: block; fill: url(#v-hair-black); }
+  .char-v.skin-v-2 .dress { display: block; fill: url(#v-dress-black); }
+  .char-v.skin-v-2 .acc-tie { display: block; }
+  .char-v.skin-v-2 .legs-clothes.tights-black { display: block; }
+  .char-v.skin-v-2 .shoes.heels { display: block; }
+
+  /* Vasilisa mermaid */
+  .char-v.skin-v-3 .hair-back, .char-v.skin-v-3 .hair-front { display: block; fill: url(#v-hair-blonde); }
+  .char-v.skin-v-3 .swimwear { display: block; }
+  .char-v.skin-v-3 .acc-pearls { display: block; }
+  .char-v.skin-v-3 .mermaid-tail { display: block; }
+  .char-v.skin-v-3 .legs { display: none; }
+
+  /* Vasilisa queen */
+  .char-v.skin-v-4 .hair-back, .char-v.skin-v-4 .hair-front { display: block; fill: url(#v-hair-blonde); }
+  .char-v.skin-v-4 .dress { display: block; fill: url(#v-dress-red); }
+  .char-v.skin-v-4 .acc-crown { display: block; }
+  .char-v.skin-v-4 .cape { display: block; }
+  .char-v.skin-v-4 .shoes.gold-heels { display: block; }
+
+  /* Sasha skins */
+  .char-s .shirt { display: none; }
+  .char-s.skin-s-0 .hair { display: block; fill: url(#s-hair-brown); }
+  .char-s.skin-s-0 .shirt { display: block; fill: url(#s-shirt-blue); }
+  .char-s.skin-s-0 .acc-drip { display: block; }
+  .char-s.skin-s-0 .legs-clothes.pants { display: block; fill: #3a4a6b; }
+  .char-s.skin-s-0 .shoes.sneakers { display: block; }
+  .char-s.skin-s-0 .shoes.sneakers .shoe-color { fill: #fff; }
+
+  .char-s.skin-s-1 .hair { display: block; fill: url(#s-hair-brown); }
+  .char-s.skin-s-1 .shirt { display: block; fill: url(#s-shirt-dark); }
+  .char-s.skin-s-1 .acc-tie { display: block; }
+  .char-s.skin-s-1 .legs-clothes.pants { display: block; fill: #111; }
+  .char-s.skin-s-1 .shoes.oxfords { display: block; }
+
+  .char-s.skin-s-2 .hair { display: block; fill: url(#s-hair-brown); }
+  .char-s.skin-s-2 .shirt { display: block; fill: url(#s-shirt-red); }
+  .char-s.skin-s-2 .acc-ball { display: block; }
+  .char-s.skin-s-2 .legs-clothes.shorts { display: block; fill: #e63939; }
+  .char-s.skin-s-2 .shoes.cleats { display: block; }
+
+  .char-s.skin-s-3 .hair { display: block; fill: url(#s-hair-brown); }
+  .char-s.skin-s-3 .shirt { display: block; fill: url(#s-shirt-purple); }
+  .char-s.skin-s-3 .acc-crown { display: block; }
+  .char-s.skin-s-3 .cape { display: block; }
+  .char-s.skin-s-3 .legs-clothes.pants { display: block; fill: #5a1a8b; }
+  .char-s.skin-s-3 .shoes.gold-oxfords { display: block; }
+
+  .cat .acc-collar, .cat .acc-sweater { display: none; }
+  .cat.skin-cat-1 .acc-collar { display: block; }
+  .cat.skin-tasik-1 .acc-sweater { display: block; }
+
+  .bubble { position: absolute; top: 10px; left: 50%; transform: translate(-50%, -10px) scale(0.8); padding: 8px 14px; border-radius: 16px; background: #fff; color: #1a0f2e; font-size: 13px; font-weight: 800; white-space: nowrap; opacity: 0; pointer-events: none; box-shadow: 0 10px 20px rgba(0,0,0,0.4); z-index: 60; transition: all 0.2s; }
+  .bubble.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .mania-timer { position: absolute; top: 10px; right: 10px; padding: 5px 12px; border-radius: 12px; background: linear-gradient(135deg, #ffb800, #ff6b00); font-weight: 900; font-size: 12px; box-shadow: 0 0 20px rgba(255,184,0,0.8); z-index: 60; opacity: 0; transition: opacity 0.2s; }
+  .mania-timer.active { opacity: 1; }
+
+  .golden { position: absolute; width: 65px; height: 65px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff8c0, #ffb800 55%, #c47a00 100%); display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; color: #4a2500; box-shadow: 0 0 40px rgba(255,184,0,0.9); z-index: 100; cursor: pointer; transform: translate(-50%, -50%); animation: goldenFloat 4s forwards; }
+  @keyframes goldenFloat { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0) rotate(-180deg); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(0deg); } 25% { transform: translate(-50%, -50%) scale(1) rotate(10deg); } 75% { transform: translate(-50%, -50%) scale(1) rotate(-10deg); } 90% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(0deg); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(0deg); } }
+
+  .combo-indicator { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 900; color: #ffd966; opacity: 0; pointer-events: none; z-index: 55; text-shadow: 0 0 20px #ffb800, 0 0 40px #ff6b00; white-space: nowrap; }
+  .combo-indicator.show { animation: comboPop 0.7s ease-out; }
+  @keyframes comboPop { 0% { opacity: 0; transform: translateX(-50%) scale(0.5); } 25% { opacity: 1; transform: translateX(-50%) scale(1.3) translateY(-10px); } 100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-50px); } }
+  .double-chicken { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: 900; color: #ff3d3d; text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 3px 3px 0 #fff, -3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff; z-index: 200; pointer-events: none; white-space: nowrap; animation: chickenPop 0.8s forwards; }
+  @keyframes chickenPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(-15deg); } 30% { opacity: 1; transform: translate(-50%, -50%) scale(1.4) rotate(5deg); } 70% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); } }
+
+  /* ============ PANEL & BIGGER TABS ============ */
+  .panel { position: relative; z-index: 20; background: rgba(15, 10, 30, 0.95); backdrop-filter: blur(25px); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 24px 24px 0 0; display: flex; flex-direction: column; height: 42vh; min-height: 230px; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); }
+  .tabs { display: flex; gap: 3px; padding: 10px 4px 6px; flex-shrink: 0; overflow-x: auto; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 1; min-width: 58px; padding: 8px 4px 6px; border: none; border-radius: 10px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .tab .tab-icon { font-size: 24px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)); }
+  .tab .tab-label { font-size: 9px; font-weight: 900; letter-spacing: 0.3px; text-transform: uppercase; }
+  .tab.active { background: linear-gradient(135deg, #7b5cff, #b44cff); color: #fff; box-shadow: 0 4px 15px rgba(123,92,255,0.5); }
+  .tab.active .tab-icon { filter: drop-shadow(0 2px 6px rgba(255,255,255,0.7)); transform: scale(1.1); }
+  .tab-body { flex: 1; overflow-y: auto; padding: 4px 14px 24px; }
+  .tab-body::-webkit-scrollbar { width: 4px; }
+  .tab-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+  .item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; }
+  .item.affordable { background: rgba(126,255,192,0.06); border-color: rgba(126,255,192,0.2); }
+  .item-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-desc { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .item-lvl { font-size: 10px; color: #a78bff; font-weight: 800; margin-top: 2px; }
+  .buy-btn { flex-shrink: 0; padding: 8px 12px; border-radius: 10px; border: none; font-size: 11px; font-weight: 900; color: #1a0f2e; background: linear-gradient(135deg, #ffd966, #ffb347); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .buy-btn:active { transform: scale(0.93); }
+  .buy-btn.disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); cursor: default; }
+
+  .skin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .skin-card { padding: 10px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+  .skin-card.owned { border-color: rgba(126,255,192,0.3); background: rgba(126,255,192,0.05); }
+  .skin-card.active { border-color: #ffd966; box-shadow: 0 0 15px rgba(255,217,102,0.3); }
+  .skin-title { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
+  .skin-preview { font-size: 32px; margin-bottom: 6px; line-height: 1; }
+  .skin-btn { width: 100%; padding: 6px; border-radius: 8px; border: none; font-size: 10px; font-weight: 800; cursor: pointer; background: rgba(255,255,255,0.1); color: #fff; }
+  .skin-btn.buy { background: linear-gradient(135deg, #ffd966, #ffb347); color: #1a0f2e; }
+  .skin-btn.stars { background: linear-gradient(135deg, #7b5cff, #b44cff); color: #fff; }
+  .skin-btn.active { background: #ffd966; color: #1a0f2e; }
+
+  .quest { display: flex; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; align-items: center; }
+  .quest-icon { font-size: 24px; }
+  .quest-info { flex: 1; }
+  .quest-name { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+  .quest-bar { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .quest-fill { height: 100%; background: linear-gradient(90deg, #7b5cff, #b44cff); border-radius: 6px; }
+  .quest-reward { font-size: 10px; color: #ffd966; font-weight: 800; margin-top: 4px; }
+  .quest.done { opacity: 0.5; }
+  .quest-claim { padding: 6px 10px; border-radius: 8px; border: none; background: #ffd966; color: #1a0f2e; font-weight: 800; font-size: 10px; cursor: pointer; }
+
+  .rebirth-hero { text-align: center; padding: 16px 12px; background: radial-gradient(circle at 50% 30%, rgba(255,217,102,0.15), transparent 70%); border-radius: 16px; margin-bottom: 10px; border: 1px solid rgba(255,217,102,0.2); }
+  .rebirth-stars { font-size: 44px; font-weight: 900; line-height: 1; background: linear-gradient(180deg, #fff8c0, #ffd966, #ffb800); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .rebirth-label { font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; }
+  .rebirth-mult { font-size: 14px; font-weight: 800; color: #7effc0; margin-top: 8px; }
+  .rebirth-progress { padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px; }
+  .rebirth-progress-line { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 700; margin-bottom: 6px; }
+  .rebirth-bar { height: 8px; border-radius: 8px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .rebirth-bar-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, #ffd966, #ffb800); transition: width 0.4s; }
+  .rebirth-btn { display: block; width: 100%; padding: 14px; border-radius: 14px; border: none; font-size: 15px; font-weight: 900; background: linear-gradient(135deg, #ffb800, #ff6b00); color: #fff; cursor: pointer; margin-top: 16px; }
+  .rebirth-btn.disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); cursor: default; }
+  .rebirth-info { font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.5; margin-top: 12px; text-align: center; }
+  .rebirth-stats { display: flex; gap: 8px; margin-top: 10px; }
+  .rebirth-stat { flex: 1; padding: 10px 8px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+  .rebirth-stat-val { font-size: 16px; font-weight: 900; color: #ffd966; }
+  .rebirth-stat-lbl { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+  .story-item { padding: 12px 14px; border-radius: 14px; margin-bottom: 8px; background: rgba(255,255,255,0.03); border-left: 3px solid rgba(167,139,255,0.6); }
+  .story-item.locked { opacity: 0.3; filter: blur(3px); border-left-color: rgba(255,255,255,0.1); }
+  .story-title { font-size: 13px; font-weight: 800; color: #ffd966; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .story-title .dot { width: 5px; height: 5px; border-radius: 50%; background: #ffd966; }
+  .story-text { font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.7); }
+
+  /* CASINO */
+  .casino-card { padding: 14px; border-radius: 16px; background: linear-gradient(135deg, rgba(255,217,102,0.08), rgba(255,107,0,0.08)); border: 1px solid rgba(255,217,102,0.25); margin-bottom: 10px; }
+  .casino-title { font-size: 15px; font-weight: 900; color: #ffd966; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .casino-desc { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 10px; line-height: 1.4; }
+  .bet-row { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+  .bet-input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; font-size: 13px; font-weight: 800; font-family: inherit; min-width: 0; }
+  .bet-quick { padding: 6px 10px; border-radius: 8px; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
+  .bet-quick:active { transform: scale(0.95); }
+  .play-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #ffb800, #ff6b00); color: #fff; font-size: 14px; font-weight: 900; cursor: pointer; transition: all 0.15s; }
+  .play-btn:active { transform: scale(0.97); }
+  .play-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .wheel-wrap { position: relative; width: 160px; height: 160px; margin: 10px auto 20px; }
+  .wheel { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #ffd966; position: relative; box-shadow: 0 0 30px rgba(255,184,0,0.6), inset 0 0 20px rgba(0,0,0,0.5); background: conic-gradient(#555 0deg 36deg, #666 36deg 90deg, #888 90deg 162deg, #7effc0 162deg 198deg, #ffd966 198deg 216deg, #ff8ac4 216deg 230deg, #a78bff 230deg 244deg, #ff3d3d 244deg 252deg, #555 252deg 360deg); }
+  .wheel::after { content: ''; position: absolute; inset: 38%; border-radius: 50%; background: radial-gradient(circle, #ffd966, #c47a00); border: 2px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+  .wheel-pointer { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 24px; z-index: 10; filter: drop-shadow(0 0 4px #000); }
+  .wheel-result { text-align: center; font-size: 16px; font-weight: 900; color: #ffd966; min-height: 22px; margin-top: 8px; }
+
+  .coin { width: 90px; height: 90px; margin: 15px auto; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: transform 0.3s; }
+  .coin.flipping { animation: coinFlip 1.6s; }
+  @keyframes coinFlip { 0% { transform: rotateY(0) scale(1); } 50% { transform: rotateY(900deg) scale(1.3); } 100% { transform: rotateY(1800deg) scale(1); } }
+  .coin-result { text-align: center; font-size: 16px; font-weight: 900; min-height: 20px; }
+
+  .slots { display: flex; gap: 6px; justify-content: center; margin: 15px 0; }
+  .slot-reel { width: 68px; height: 78px; border-radius: 10px; background: rgba(0,0,0,0.6); border: 2px solid rgba(255,217,102,0.4); display: flex; align-items: center; justify-content: center; font-size: 36px; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+  .slot-reel.spinning { animation: slotSpin 0.1s infinite; }
+  @keyframes slotSpin { 0% { transform: translateY(-50%); } 100% { transform: translateY(50%); } }
+  .slot-result { text-align: center; font-size: 16px; font-weight: 900; min-height: 20px; }
+
+  /* MINES */
+  .mine-diff { flex: 1; padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 800; cursor: pointer; }
+  .mine-diff.active { background: linear-gradient(135deg, #ffd966, #ffb347); color: #1a0f2e; border-color: #ffd966; }
+  .mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 12px 0; }
+  .mine-cell { aspect-ratio: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .mine-cell:hover:not(.safe):not(.mine) { background: rgba(255,255,255,0.18); }
+  .mine-cell.safe { background: rgba(126,255,192,0.25); border-color: rgba(126,255,192,0.6); cursor: default; }
+  .mine-cell.mine { background: rgba(255,61,61,0.35); border-color: rgba(255,61,61,0.7); cursor: default; }
+  .mines-info { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,0.3); margin-bottom: 10px; }
+  .mines-info b { color: #7effc0; }
+  .mines-result { text-align: center; font-size: 15px; font-weight: 900; min-height: 20px; margin-top: 10px; }
+
+  .streak-wrap { padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px; }
+  .streak-title { font-size: 13px; font-weight: 800; color: #ffd966; margin-bottom: 8px; }
+  .streak-bar { display: flex; gap: 4px; margin: 8px 0; }
+  .streak-day { flex: 1; padding: 8px 2px; border-radius: 8px; background: rgba(255,255,255,0.05); text-align: center; font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.4); }
+  .streak-day.claimed { background: rgba(126,255,192,0.2); color: #7effc0; }
+  .streak-day.today { background: rgba(255,217,102,0.3); color: #ffd966; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,217,102,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,217,102,0); } }
+  .streak-claim { width: 100%; padding: 10px; border-radius: 10px; border: none; background: linear-gradient(135deg, #ffd966, #ffb347); color: #1a0f2e; font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 6px; }
+  .streak-claim:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: default; }
+
+  .toast { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.7); padding: 16px 28px; border-radius: 20px; background: linear-gradient(135deg, rgba(123,92,255,0.95), rgba(180,76,255,0.95)); color: #fff; font-weight: 900; font-size: 16px; text-align: center; opacity: 0; pointer-events: none; z-index: 300; border: 1px solid rgba(255,255,255,0.3); }
+  .toast.show { animation: toastIn 2.2s forwards; }
+  .toast .t-small { font-size: 10px; font-weight: 700; opacity: 0.8; margin-bottom: 4px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .toast.gold { background: linear-gradient(135deg, rgba(255,184,0,0.95), rgba(255,107,0,0.95)); }
+  .toast.ach { background: linear-gradient(135deg, rgba(255,217,102,0.95), rgba(255,138,61,0.95)); color: #1a0f2e; }
+  .toast.win { background: linear-gradient(135deg, rgba(126,255,192,0.95), rgba(0,220,140,0.95)); color: #0a1f14; }
+  .toast.lose { background: linear-gradient(135deg, rgba(255,61,61,0.95), rgba(180,0,0,0.95)); }
+  @keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 22% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%) scale(0.95); } }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; }
+  .modal { background: linear-gradient(180deg, #1f1435, #0a0615); border-radius: 24px; padding: 24px 20px; max-width: 340px; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+  .modal-emoji { font-size: 44px; margin-bottom: 10px; }
+  .modal-title { font-size: 18px; font-weight: 900; margin-bottom: 8px; color: #ffd966; }
+  .modal-text { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 10px; }
+  .modal-big { font-size: 32px; font-weight: 900; margin: 12px 0; color: #ffd966; }
+  .modal-btn { display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 14px; border: none; background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .modal-btn.primary { background: linear-gradient(135deg, #7b5cff, #b44cff); }
+</style>
+</head>
+<body>
+<div id="app" class="night">
+  <canvas id="fx-canvas"></canvas>
+
+  <div class="header">
+    <div class="stage-name" id="stageName">Школьница</div>
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+    <button class="hdr-btn" id="musicBtn">🎵</button>
+    <button class="hdr-btn" id="soundBtn">🔊</button>
+  </div>
+
+  <div class="score-area">
+    <div class="score-value" id="scoreVal">0</div>
+    <div class="score-label">мандаринок</div>
+    <div class="badges">
+      <div class="badge badge-passive" id="perSec">+0/сек</div>
+      <div class="badge badge-combo" id="comboBadge">🔥 x0</div>
+      <div class="badge badge-stars" id="starBadge">⭐ 0 · x1.00</div>
+    </div>
+  </div>
+
+  <div class="tap-zone" id="tapZone">
+    <div class="mania-timer" id="maniaTimer">🔥 x3 · 0s</div>
+    <div class="bubble" id="bubble"></div>
+    <div class="combo-indicator" id="comboIndicator"></div>
+
+    <div class="cat-wrapper left" id="catThaiContainer">
+      <div class="cat skin-cat-0" id="catThai">
+        <svg viewBox="0 0 100 120">
+          <defs>
+            <radialGradient id="blackFur" cx="40%" cy="30%" r="60%"><stop offset="0%" stop-color="#4a4a4a"/><stop offset="100%" stop-color="#111111"/></radialGradient>
+            <linearGradient id="eyeGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a8ffdd"/><stop offset="100%" stop-color="#00ffaa"/></linearGradient>
+          </defs>
+          <path d="M72 92 Q98 88 92 60 Q88 48 82 52" stroke="#222" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <ellipse cx="48" cy="82" rx="30" ry="28" fill="url(#blackFur)"/>
+          <ellipse cx="48" cy="88" rx="16" ry="14" fill="#2a2a2a" opacity="0.4"/>
+          <rect x="30" y="98" width="10" height="16" rx="5" fill="#1a1a1a"/>
+          <rect x="56" y="98" width="10" height="16" rx="5" fill="#1a1a1a"/>
+          <ellipse cx="48" cy="48" rx="28" ry="30" fill="url(#blackFur)"/>
+          <path d="M22 38 L14 8 L40 28 Z" fill="#1a1a1a"/><path d="M74 38 L82 8 L56 28 Z" fill="#1a1a1a"/>
+          <path d="M24 34 L18 14 L36 28 Z" fill="#4a2a3a"/><path d="M72 34 L78 14 L60 28 Z" fill="#4a2a3a"/>
+          <ellipse cx="36" cy="48" rx="7" ry="9" fill="url(#eyeGlow)"/><ellipse cx="60" cy="48" rx="7" ry="9" fill="url(#eyeGlow)"/>
+          <ellipse cx="36" cy="48" rx="2" ry="6" fill="#0a0a0a"/><ellipse cx="60" cy="48" rx="2" ry="6" fill="#0a0a0a"/>
+          <circle cx="38" cy="44" r="2" fill="#fff"/><circle cx="62" cy="44" r="2" fill="#fff"/>
+          <path d="M44 58 L52 58 L48 63 Z" fill="#ff8fb8"/>
+          <path d="M48 63 Q45 68 41 65 M48 63 Q51 68 55 65" stroke="#3a1a2a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <g class="acc-collar"><path d="M28 70 Q48 85 68 70" stroke="#ff0000" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="48" cy="79" r="4" fill="#ffd966"/></g>
+        </svg>
+      </div>
+      <button class="cat-btn" id="skillThai">🐾 Ярость</button>
+    </div>
+
+    <div class="cat-wrapper right hidden" id="catBrownContainer">
+      <div class="cat skin-tasik-0" id="catBrown">
+        <svg viewBox="0 0 100 120">
+          <defs><radialGradient id="brownFur" cx="40%" cy="30%" r="60%"><stop offset="0%" stop-color="#c09060"/><stop offset="100%" stop-color="#6a4a2a"/></radialGradient></defs>
+          <path d="M28 92 Q2 88 8 60 Q12 48 18 52" stroke="#6a4a2a" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <ellipse cx="52" cy="82" rx="30" ry="28" fill="url(#brownFur)"/>
+          <ellipse cx="52" cy="88" rx="16" ry="14" fill="#a88858" opacity="0.4"/>
+          <rect x="34" y="98" width="10" height="16" rx="5" fill="#7a5a3a"/><rect x="60" y="98" width="10" height="16" rx="5" fill="#7a5a3a"/>
+          <ellipse cx="52" cy="48" rx="28" ry="30" fill="url(#brownFur)"/>
+          <path d="M26 38 L18 8 L44 28 Z" fill="#8a6a3a"/><path d="M78 38 L86 8 L60 28 Z" fill="#8a6a3a"/>
+          <path d="M28 34 L22 14 L40 28 Z" fill="#c8a880"/><path d="M76 34 L82 14 L64 28 Z" fill="#c8a880"/>
+          <path d="M42 30 Q52 26 62 30" stroke="#5a3a1a" stroke-width="2" fill="none"/><path d="M42 35 Q52 31 62 35" stroke="#5a3a1a" stroke-width="2" fill="none"/>
+          <ellipse cx="41" cy="48" rx="7" ry="9" fill="#ffd966"/><ellipse cx="63" cy="48" rx="7" ry="9" fill="#ffd966"/>
+          <ellipse cx="41" cy="48" rx="2" ry="6" fill="#2a1a12"/><ellipse cx="63" cy="48" rx="2" ry="6" fill="#2a1a12"/>
+          <circle cx="43" cy="44" r="2" fill="#fff"/><circle cx="65" cy="44" r="2" fill="#fff"/>
+          <path d="M48 58 L56 58 L52 63 Z" fill="#ff8fb8"/>
+          <path d="M52 63 Q49 68 45 65 M52 63 Q55 68 59 65" stroke="#3a1a2a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <g class="acc-sweater"><path d="M22 75 Q52 95 82 75 L82 95 Q52 110 22 95 Z" fill="#ffd966"/><path d="M32 80 L32 100 M42 84 L42 104 M52 86 L52 106 M62 84 L62 104 M72 80 L72 100" stroke="#e6a800" stroke-width="2" fill="none"/></g>
+        </svg>
+      </div>
+      <button class="cat-btn" id="skillBrown">🐾 Зол. лапа</button>
+    </div>
+
+    <div class="tap-btn-container">
+      <div class="tap-btn-glow"></div>
+      <div class="tap-btn" id="tapBtn">
+        <div class="tap-btn-inner">
+          <div class="chars" id="chars">
+            <!-- ============= VASILISA SVG ============= -->
+            <div class="char char-v skin-v-0" id="charV">
+              <svg viewBox="0 0 200 240" preserveAspectRatio="xMidYMax meet">
+                <defs>
+                  <linearGradient id="v-hair-brown" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a07248"/><stop offset="50%" stop-color="#7a4e28"/><stop offset="100%" stop-color="#3a2414"/></linearGradient>
+                  <linearGradient id="v-hair-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7a5a42"/><stop offset="100%" stop-color="#3a2418"/></linearGradient>
+                  <linearGradient id="v-hair-black" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a1a1a"/><stop offset="100%" stop-color="#0a0505"/></linearGradient>
+                  <linearGradient id="v-hair-blonde" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffe8a0"/><stop offset="50%" stop-color="#ffd060"/><stop offset="100%" stop-color="#a07010"/></linearGradient>
+                  <linearGradient id="v-dress-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff9ac4"/><stop offset="100%" stop-color="#c82e60"/></linearGradient>
+                  <linearGradient id="v-dress-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a9bce"/><stop offset="100%" stop-color="#2a4a7e"/></linearGradient>
+                  <linearGradient id="v-dress-black" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a3a3a"/><stop offset="100%" stop-color="#0a0a0a"/></linearGradient>
+                  <linearGradient id="v-dress-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e60030"/><stop offset="100%" stop-color="#5a0010"/></linearGradient>
+                  <linearGradient id="v-crown" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff8c0"/><stop offset="100%" stop-color="#ffb800"/></linearGradient>
+                  <linearGradient id="v-tail" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00e4ff"/><stop offset="100%" stop-color="#0066aa"/></linearGradient>
+                </defs>
+                
+                <!-- HAIR BACK -->
+                <path class="hair-back" d="M 52 55 Q 42 12 100 5 Q 158 12 148 55 L 162 175 Q 158 195 148 182 L 142 100 Q 132 72 100 68 Q 68 72 58 100 L 52 182 Q 42 195 38 175 Z"/>
+                
+                <!-- CAPE -->
+                <path class="cape" d="M 62 100 L 30 215 Q 62 220 82 200 L 68 100 Z" fill="#9e0000" />
+                <path class="cape" d="M 138 100 L 170 215 Q 138 220 118 200 L 132 100 Z" fill="#9e0000" />
+                <path d="M 68 100 L 82 200 M 132 100 L 118 200" stroke="#6a0000" stroke-width="1" fill="none" opacity="0.5"/>
+                
+                <!-- LEGS -->
+                <rect class="legs" x="85" y="155" width="13" height="58" rx="6" fill="#f8d0b8" />
+                <rect class="legs" x="102" y="155" width="13" height="58" rx="6" fill="#f8d0b8" />
+                
+                <!-- LEG CLOTHES -->
+                <g class="legs-clothes tights-white"><rect x="83" y="155" width="17" height="58" rx="6" fill="#fff"/><rect x="100" y="155" width="17" height="58" rx="6" fill="#fff"/></g>
+                <g class="legs-clothes tights-black"><rect x="83" y="155" width="17" height="58" rx="6" fill="#1a1a1a"/><rect x="100" y="155" width="17" height="58" rx="6" fill="#1a1a1a"/></g>
+                <g class="legs-clothes jeans"><rect x="83" y="155" width="17" height="58" rx="6" fill="#3a6b9e"/><rect x="100" y="155" width="17" height="58" rx="6" fill="#3a6b9e"/><path d="M 88 158 L 88 210 M 105 158 L 105 210" stroke="#2a5b8e" stroke-width="1" fill="none" opacity="0.6"/></g>
+                
+                <!-- MERMAID TAIL -->
+                <g class="mermaid-tail">
+                  <path d="M 83 155 L 100 235 Q 122 240 118 218 L 106 155 Z" fill="url(#v-tail)"/>
+                  <path d="M 83 155 L 100 235 Q 78 240 82 218 L 94 155 Z" fill="url(#v-tail)"/>
+                  <path d="M 88 170 Q 96 175 104 170 M 86 185 Q 96 190 106 185 M 84 200 Q 96 205 108 200 M 88 215 Q 98 220 106 215" stroke="#fff" stroke-width="1.5" fill="none" opacity="0.4"/>
+                  <path d="M 96 235 Q 92 230 88 232 M 104 235 Q 108 230 112 232" stroke="#fff" stroke-width="1" fill="none" opacity="0.3"/>
+                </g>
+                
+                <!-- SHOES -->
+                <g class="shoes sneakers">
+                  <ellipse cx="91" cy="215" rx="14" ry="6" class="shoe-color"/>
+                  <ellipse cx="109" cy="215" rx="14" ry="6" class="shoe-color"/>
+                  <path d="M 80 212 Q 91 218 102 212 M 98 212 Q 109 218 120 212" stroke="#fff" stroke-width="1.5" fill="none"/>
+                </g>
+                <g class="shoes heels">
+                  <path d="M 78 210 L 96 210 L 96 216 L 72 216 Z" fill="#111"/>
+                  <path d="M 104 210 L 122 210 L 128 216 L 104 216 Z" fill="#111"/>
+                  <path d="M 96 216 L 96 222 L 78 222 L 78 216 Z" fill="#111"/>
+                  <path d="M 104 216 L 104 222 L 128 222 L 128 216 Z" fill="#111"/>
+                </g>
+                <g class="shoes gold-heels">
+                  <path d="M 78 210 L 96 210 L 96 216 L 72 216 Z" fill="url(#v-crown)"/>
+                  <path d="M 104 210 L 122 210 L 128 216 L 104 216 Z" fill="url(#v-crown)"/>
+                  <path d="M 96 216 L 96 222 L 78 222 L 78 216 Z" fill="#c47a00"/>
+                  <path d="M 104 216 L 104 222 L 128 222 L 128 216 Z" fill="#c47a00"/>
+                </g>
+                
+                <!-- ARMS -->
+                <rect class="skin" x="55" y="105" width="13" height="52" rx="6" fill="#f8d0b8" />
+                <rect class="skin" x="132" y="105" width="13" height="52" rx="6" fill="#f8d0b8" />
+                
+                <!-- DRESS / TORSO -->
+                <path class="dress" d="M 65 100 Q 100 90 135 100 L 148 165 Q 100 178 52 165 Z"/>
+                <path d="M 78 100 Q 100 110 122 100 Q 100 96 78 100 Z" fill="#fff" opacity="0.4"/>
+                <path d="M 65 130 Q 100 138 135 130" stroke="#fff" stroke-width="1" fill="none" opacity="0.2"/>
+                
+                <!-- SWIMWEAR -->
+                <g class="swimwear">
+                  <path d="M 75 100 Q 100 92 125 100 L 130 118 Q 100 128 70 118 Z" fill="#00d4ff" />
+                  <path d="M 82 130 Q 100 138 118 130 L 122 148 Q 100 156 78 148 Z" fill="#00d4ff" />
+                  <path d="M 78 105 Q 100 112 122 105" stroke="#fff" stroke-width="1" fill="none" opacity="0.4"/>
+                </g>
+                
+                <!-- NECK -->
+                <rect class="skin" x="92" y="82" width="16" height="22" fill="#f8d0b8" />
+                <path d="M 92 88 Q 100 94 108 88" stroke="#d4a080" stroke-width="1.5" fill="none" opacity="0.5"/>
+                
+                <!-- HEAD -->
+                <ellipse class="skin" cx="100" cy="55" rx="34" ry="38" fill="#f8d0b8" />
+                <ellipse class="skin" cx="100" cy="62" rx="30" ry="30" fill="#fce0c8" opacity="0.3"/>
+                
+                <!-- FACE -->
+                <g class="face">
+                  <ellipse cx="82" cy="58" rx="10" ry="13" fill="#fff" />
+                  <ellipse cx="83" cy="60" rx="7" ry="10" fill="#5a3018" />
+                  <circle cx="84" cy="60" r="5" fill="#1a0a05" />
+                  <circle cx="86" cy="56" r="3" fill="#fff" />
+                  <circle cx="82" cy="64" r="1.5" fill="#fff" opacity="0.8" />
+                  <path d="M 72 52 Q 78 46 84 48" stroke="#3a1a10" stroke-width="2" fill="none" stroke-linecap="round" />
+                  
+                  <ellipse cx="118" cy="58" rx="10" ry="13" fill="#fff" />
+                  <ellipse cx="117" cy="60" rx="7" ry="10" fill="#5a3018" />
+                  <circle cx="116" cy="60" r="5" fill="#1a0a05" />
+                  <circle cx="118" cy="56" r="3" fill="#fff" />
+                  <circle cx="114" cy="64" r="1.5" fill="#fff" opacity="0.8" />
+                  <path d="M 116 48 Q 122 46 128 52" stroke="#3a1a10" stroke-width="2" fill="none" stroke-linecap="round" />
+                  
+                  <path d="M 73 42 Q 82 37 92 42" stroke="#5a3520" stroke-width="2.5" fill="none" stroke-linecap="round" />
+                  <path d="M 108 42 Q 118 37 127 42" stroke="#5a3520" stroke-width="2.5" fill="none" stroke-linecap="round" />
+                  
+                  <path d="M 97 74 Q 100 77 103 74" stroke="#d0a080" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                  
+                  <path d="M 90 84 Q 100 92 110 84" stroke="#d84868" fill="none" stroke-width="2.5" stroke-linecap="round" />
+                  <path d="M 94 86 Q 100 89 106 86" stroke="#ff9ab0" stroke-width="1" fill="none" />
+                  
+                  <ellipse cx="70" cy="78" rx="7" ry="4" fill="#ff9aa0" opacity="0.4" />
+                  <ellipse cx="130" cy="78" rx="7" ry="4" fill="#ff9aa0" opacity="0.4" />
+                </g>
+                
+                <!-- FRONT HAIR -->
+                <path class="hair-front" d="M 60 55 Q 55 15 100 10 Q 145 15 140 55 Q 130 35 115 30 Q 100 25 85 30 Q 70 35 60 55 Z"/>
+                <path d="M 75 25 Q 90 18 105 22" stroke="#fff" stroke-width="2" fill="none" opacity="0.35" stroke-linecap="round" />
+                <path d="M 68 45 Q 78 35 88 38" stroke="#fff" stroke-width="1.5" fill="none" opacity="0.25" stroke-linecap="round" />
+                
+                <!-- ACCESSORIES -->
+                <g class="acc-bow">
+                  <path d="M 100 20 L 84 8 L 84 30 Z" fill="#ff4a8a" />
+                  <path d="M 100 20 L 116 8 L 116 30 Z" fill="#ff4a8a" />
+                  <circle cx="100" cy="20" r="5" fill="#ffd966" />
+                </g>
+                <g class="acc-glasses">
+                  <rect x="69" y="47" width="26" height="22" rx="9" fill="none" stroke="#fff" stroke-width="2.5" />
+                  <rect x="105" y="47" width="26" height="22" rx="9" fill="none" stroke="#fff" stroke-width="2.5" />
+                  <path d="M 95 58 L 105 58" stroke="#fff" stroke-width="2.5" />
+                </g>
+                <g class="acc-tie">
+                  <path d="M 96 100 L 104 100 L 107 132 L 100 145 L 93 132 Z" fill="#fff" />
+                </g>
+                <g class="acc-crown">
+                  <path d="M 66 22 L 78 2 L 100 12 L 122 2 L 134 22 Z" fill="url(#v-crown)" stroke="#c47a00" stroke-width="2" stroke-linejoin="round"/>
+                  <circle cx="66" cy="22" r="3" fill="#ff3d3d"/>
+                  <circle cx="134" cy="22" r="3" fill="#ff3d3d"/>
+                  <circle cx="100" cy="12" r="4" fill="#3d3dff"/>
+                </g>
+                <g class="acc-pearls">
+                  <circle cx="92" cy="99" r="2.5" fill="#fff"/>
+                  <circle cx="96" cy="101" r="2.5" fill="#fff"/>
+                  <circle cx="100" cy="102" r="2.5" fill="#fff"/>
+                  <circle cx="104" cy="101" r="2.5" fill="#fff"/>
+                  <circle cx="108" cy="99" r="2.5" fill="#fff"/>
+                </g>
+              </svg>
+            </div>
+
+            <!-- ============= SASHA SVG ============= -->
+            <div class="char char-s skin-s-0" id="charS">
+              <svg viewBox="0 0 200 240" preserveAspectRatio="xMidYMax meet">
+                <defs>
+                  <linearGradient id="s-hair-brown" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c69a68"/><stop offset="50%" stop-color="#8a6234"/><stop offset="100%" stop-color="#4a3418"/></linearGradient>
+                  <linearGradient id="s-shirt-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a8aaa"/><stop offset="100%" stop-color="#2a4a6e"/></linearGradient>
+                  <linearGradient id="s-shirt-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a3a5b"/><stop offset="100%" stop-color="#0a0f1e"/></linearGradient>
+                  <linearGradient id="s-shirt-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e63939"/><stop offset="100%" stop-color="#7a1010"/></linearGradient>
+                  <linearGradient id="s-shirt-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7a2ab8"/><stop offset="100%" stop-color="#2a0a4b"/></linearGradient>
+                  <linearGradient id="s-crown" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff8c0"/><stop offset="100%" stop-color="#ffb800"/></linearGradient>
+                </defs>
+                
+                <!-- CAPE -->
+                <path class="cape" d="M 58 105 L 25 210 Q 60 218 82 195 L 66 105 Z" fill="#3d1a6b" />
+                <path class="cape" d="M 142 105 L 175 210 Q 140 218 118 195 L 134 105 Z" fill="#3d1a6b" />
+                
+                <!-- LEGS -->
+                <rect class="legs" x="86" y="158" width="13" height="55" rx="6" fill="#f0c8a8" />
+                <rect class="legs" x="101" y="158" width="13" height="55" rx="6" fill="#f0c8a8" />
+                
+                <!-- LEG CLOTHES -->
+                <g class="legs-clothes pants"><rect x="84" y="158" width="17" height="55" rx="6"/><rect x="99" y="158" width="17" height="55" rx="6"/></g>
+                <g class="legs-clothes shorts"><rect x="84" y="158" width="17" height="28" rx="6"/><rect x="99" y="158" width="17" height="28" rx="6"/></g>
+                
+                <!-- SHOES -->
+                <g class="shoes sneakers">
+                  <ellipse cx="92" cy="214" rx="14" ry="6" class="shoe-color" stroke="#111" stroke-width="1.5"/>
+                  <ellipse cx="108" cy="214" rx="14" ry="6" class="shoe-color" stroke="#111" stroke-width="1.5"/>
+                  <path d="M 80 210 Q 92 216 104 210 M 96 210 Q 108 216 120 210" stroke="#e63939" stroke-width="2" fill="none"/>
+                </g>
+                <g class="shoes oxfords">
+                  <path d="M 76 210 L 96 210 L 96 218 L 72 218 Z" fill="#111" />
+                  <path d="M 104 210 L 124 210 L 128 218 L 104 218 Z" fill="#111" />
+                  <path d="M 82 213 L 96 213 M 104 213 L 118 213" stroke="#333" stroke-width="1"/>
+                </g>
+                <g class="shoes cleats">
+                  <path d="M 76 210 L 96 210 L 96 218 L 72 218 Z" fill="#111" />
+                  <path d="M 104 210 L 124 210 L 128 218 L 104 218 Z" fill="#111" />
+                  <path d="M 76 218 L 76 221 M 84 218 L 84 221 M 72 218 L 72 221 M 104 218 L 104 221 M 112 218 L 112 221 M 128 218 L 128 221" stroke="#fff" stroke-width="2"/>
+                </g>
+                <g class="shoes gold-oxfords">
+                  <path d="M 76 210 L 96 210 L 96 218 L 72 218 Z" fill="url(#s-crown)" stroke="#c47a00" stroke-width="1"/>
+                  <path d="M 104 210 L 124 210 L 128 218 L 104 218 Z" fill="url(#s-crown)" stroke="#c47a00" stroke-width="1"/>
+                </g>
+                
+                <!-- ARMS -->
+                <rect class="skin" x="55" y="108" width="13" height="52" rx="6" fill="#f0c8a8" />
+                <rect class="skin" x="132" y="108" width="13" height="52" rx="6" fill="#f0c8a8" />
+                
+                <!-- SHIRT -->
+                <path class="shirt" d="M 65 105 Q 100 95 135 105 L 145 165 Q 100 175 55 165 Z"/>
+                <path d="M 78 105 Q 100 115 122 105 Q 100 100 78 105 Z" fill="#fff" opacity="0.35"/>
+                <!-- Jersey number -->
+                <text x="100" y="145" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" opacity="0.5" font-family="sans-serif">7</text>
+                
+                <!-- NECK -->
+                <rect class="skin" x="92" y="82" width="16" height="24" fill="#f0c8a8" />
+                
+                <!-- HEAD -->
+                <ellipse class="skin" cx="100" cy="52" rx="33" ry="36" fill="#f0c8a8" />
+                <ellipse class="skin" cx="100" cy="58" rx="28" ry="28" fill="#f8d8b8" opacity="0.3"/>
+                
+                <!-- FACE -->
+                <g class="face">
+                  <ellipse cx="84" cy="55" rx="8" ry="10" fill="#fff" />
+                  <ellipse cx="85" cy="57" rx="5.5" ry="8" fill="#4a2a10" />
+                  <circle cx="86" cy="57" r="4" fill="#0a0505" />
+                  <circle cx="87" cy="54" r="2.5" fill="#fff" />
+                  
+                  <ellipse cx="116" cy="55" rx="8" ry="10" fill="#fff" />
+                  <ellipse cx="115" cy="57" rx="5.5" ry="8" fill="#4a2a10" />
+                  <circle cx="114" cy="57" r="4" fill="#0a0505" />
+                  <circle cx="115" cy="54" r="2.5" fill="#fff" />
+                  
+                  <path d="M 76 42 Q 84 38 92 42" stroke="#7a4a20" stroke-width="3" fill="none" stroke-linecap="round" />
+                  <path d="M 108 42 Q 116 38 124 42" stroke="#7a4a20" stroke-width="3" fill="none" stroke-linecap="round" />
+                  
+                  <path d="M 97 68 Q 100 71 103 68" stroke="#c89878" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                  
+                  <path d="M 90 78 Q 100 86 112 76" stroke="#c06040" fill="none" stroke-width="2.5" stroke-linecap="round" />
+                  
+                  <ellipse cx="74" cy="72" rx="6" ry="3" fill="#ff8a80" opacity="0.3" />
+                  <ellipse cx="126" cy="72" rx="6" ry="3" fill="#ff8a80" opacity="0.3" />
+                </g>
+                
+                <!-- HAIR -->
+                <path class="hair" d="M 58 50 Q 55 12 100 8 Q 145 12 142 50 Q 138 32 122 26 Q 108 20 88 24 Q 68 30 58 50 Z"/>
+                <!-- Hair sweep (чёлка набок) -->
+                <path d="M 68 42 Q 88 24 110 30 Q 100 32 92 40 Q 82 48 68 42 Z" fill="#a8824a" opacity="0.7"/>
+                <path d="M 78 26 Q 90 18 105 22" stroke="#fff" stroke-width="1.5" fill="none" opacity="0.3" stroke-linecap="round"/>
+                
+                <!-- ACCESSORIES -->
+                <g class="acc-drip">
+                  <path d="M 88 105 Q 100 122 112 105" stroke="#ffd966" stroke-width="2.5" fill="none"/>
+                  <circle cx="100" cy="117" r="4" fill="#ffd966"/>
+                  <circle cx="100" cy="117" r="1.5" fill="#fff" opacity="0.7"/>
+                </g>
+                <g class="acc-tie">
+                  <path d="M 96 105 L 104 105 L 107 138 L 100 150 L 93 138 Z" fill="#ff3d3d"/>
+                </g>
+                <g class="acc-ball">
+                  <circle cx="150" cy="180" r="18" fill="#fff" stroke="#111" stroke-width="2"/>
+                  <polygon points="150,167 155,177 165,177 158,184 160,194 150,189 140,194 142,184 135,177 145,177" fill="#111"/>
+                </g>
+                <g class="acc-crown">
+                  <path d="M 70 22 L 80 2 L 100 12 L 120 2 L 130 22 Z" fill="url(#s-crown)" stroke="#c47a00" stroke-width="2" stroke-linejoin="round"/>
+                  <circle cx="70" cy="22" r="3" fill="#3d3dff"/>
+                  <circle cx="130" cy="22" r="3" fill="#3d3dff"/>
+                  <circle cx="100" cy="12" r="4" fill="#ff3d3d"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="shop"><span class="tab-icon">✨</span><span class="tab-label">Апы</span></button>
+      <button class="tab" data-tab="casino"><span class="tab-icon">🎰</span><span class="tab-label">Казино</span></button>
+      <button class="tab" data-tab="rebirth"><span class="tab-icon">🌟</span><span class="tab-label">Реборн</span></button>
+      <button class="tab" data-tab="skins"><span class="tab-icon">👕</span><span class="tab-label">Скины</span></button>
+      <button class="tab" data-tab="quests"><span class="tab-icon">📅</span><span class="tab-label">Квесты</span></button>
+      <button class="tab" data-tab="streak"><span class="tab-icon">🎁</span><span class="tab-label">Стрик</span></button>
+      <button class="tab" data-tab="story"><span class="tab-icon">📖</span><span class="tab-label">Сюжет</span></button>
+    </div>
+    <div class="tab-body" id="tabBody"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#05030a'); tg.setBackgroundColor('#05030a'); } catch(e) {} }
+
+  // ============== DATA ==============
+  const UPGRADES = [
+    { id:'shpora', icon:'📝', name:'Шпаргалки', desc:'+1 за тап', baseCost:15, type:'tap', value:1 },
+    { id:'repetitor', icon:'👩‍🏫', name:'Репетитор', desc:'+5 за тап', baseCost:120, type:'tap', value:5 },
+    { id:'cat_talisman', icon:'🐈‍⬛', name:'Кот-талисман', desc:'+15 за тап', baseCost:800, type:'tap', value:15 },
+    { id:'sasha_help', icon:'💪', name:'Саша Ф подтягивает', desc:'+60 за тап', baseCost:6000, type:'tap', value:60 },
+    { id:'cat_helper', icon:'🐈', name:'Кот-помощник', desc:'+200 за тап', baseCost:30000, type:'tap', value:200 },
+    { id:'rat_veronika', icon:'🐀', name:'Крыса Веронички', desc:'+800 за тап', baseCost:250000, type:'tap', value:800 },
+    { id:'master', icon:'🏆', name:'Мастер-класс', desc:'+3000 за тап', baseCost:2000000, type:'tap', value:3000 },
+    { id:'auto_clicker', icon:'✍️', name:'Авторучка', desc:'Авто-тап 1 раз/сек', baseCost:50000, type:'auto', value:1 },
+    { id:'frends', icon:'👯', name:'Друзья по группе', desc:'+3/сек', baseCost:80, type:'passive', value:3 },
+    { id:'avito', icon:'📦', name:'Саша флипает', desc:'+15/сек', baseCost:750, type:'passive', value:15 },
+    { id:'shop', icon:'🛍️', name:'Магазин брендов', desc:'+75/сек', baseCost:5000, type:'passive', value:75 },
+    { id:'office', icon:'🏙️', name:'Офис в Москва-Сити', desc:'+400/сек', baseCost:30000, type:'passive', value:400 },
+    { id:'holding', icon:'🏢', name:'Холдинг «Василиса»', desc:'+2000/сек', baseCost:200000, type:'passive', value:2000 },
+    { id:'brain', icon:'🧠', name:'Мозговой центр', desc:'+10000/сек', baseCost:1500000, type:'passive', value:10000 },
+    { id:'ai', icon:'🤖', name:'ИИ-ассистент', desc:'+50000/сек', baseCost:12000000, type:'passive', value:50000 },
+    { id:'global', icon:'🌍', name:'Глобальная сеть', desc:'+250000/сек', baseCost:100000000, type:'passive', value:250000 },
+  ];
+
+  const STAGES = [
+    { need:0, name:'Школьница' }, { need:150, name:'Отличница' }, { need:1500, name:'Знакомство с Сашей Ф' },
+    { need:10000, name:'Первое свидание' }, { need:50000, name:'Поступает в МГУ' }, { need:250000, name:'Саша флипает на Авито' },
+    { need:1200000, name:'Свой бизнес' }, { need:6000000, name:'Москва-Сити' }, { need:30000000, name:'Империя' },
+    { need:200000000, name:'Легенда' },
+  ];
+
+  const STORY = [
+    { title:'Школьница', text:'Василиса — обычная девочка с длинными русыми волосами. Она с детства любит животных, и у неё живёт чёрная тайка.' },
+    { title:'Отличница', text:'Первый «отлично» в дневнике! Василиса понимает: упорство работает. Мандаринки летят одна за другой.' },
+    { title:'Знакомство с Сашей Ф', text:'На перемене к ней подходит Саша Ф — русый парень с чёлкой набок. «Дай списать?» — «Только если проводишь до дома». У Саши дома живёт толстый коричневый тасик.' },
+    { title:'Первое свидание', text:'Кино, прогулки до полуночи, шаурма у метро. Саша носит её рюкзак, а Василиса улыбается так, что все мандаринки мира меркнут.' },
+    { title:'Поступление в МГУ', text:'Экзамены позади. Василиса — студентка МГУ! Саша приносит ей кофе в читалку и обещает: «Мы будем жить в Сити».' },
+    { title:'Саша флипает на Авито', text:'Саша Ф нашёл золотую жилу: скупает брендовые вещи на распродажах и перепродаёт на Авито. Мандаринки текут рекой.' },
+    { title:'Свой бизнес', text:'Василиса открывает свой бренд одежды. Саша — директор по закупкам. Коты живут припеваючи и спят на коробках с товаром.' },
+    { title:'Москва-Сити', text:'Ключи от квартиры на 60-м этаже. Из окна — весь город. Василиса и Саша стоят обнявшись, а тайка и тасик важно смотрят на огни.' },
+    { title:'Империя', text:'Теперь это холдинг. Василиса — CEO, Саша — акционер. Они доказали: девочка из школы и парень в кроссовках могут всё.' },
+    { title:'Легенда', text:'О них пишет Forbes. Их коты — звёзды Instagram. А мандаринки стали валютой. ДАБЛ ЧИКЕН навсегда, базара ноль!' },
+  ];
+
+  // SLANG PHRASES
+  const PHRASES_V = [
+    ['Уроки!', 'Мандаринка!', 'Дневник!', 'Ещё одну!', 'Учиться!'],
+    ['Отлично!', 'Мандаринки летят!', 'Класс!', 'Ещё!', 'Умница!'],
+    ['Привет, Саш!', 'Хи-хи', 'Правда?', 'Чё как?', 'Ну ты даёшь!', 'Кринж!', 'Рофл!'],
+    ['Кино?', 'Хихи', 'Обнимашки!', 'Люблю!', 'Ты лучший!', 'Ой, всё!', 'Жиза!'],
+    ['МГУ!', 'Сессия!', 'Зачёт!', 'Библиотека!', 'Слэй!', 'Базара ноль!'],
+    ['Авито!', 'Флип!', 'Продано!', 'Доставка!', 'Равнина гавнина!', 'Агонь!'],
+    ['Бренд!', 'Коллекция!', 'Стиль!', 'Показ!', 'Топчик!'],
+    ['Сити!', '60 этаж!', 'Огни!', 'Мечта!', 'Равнина гавнина!'],
+    ['Империя!', 'CEO!', 'Холдинг!', 'Легенда!', 'Базара ноль!'],
+    ['Легенда!', 'ДАБЛ ЧИКЕН!', 'Forbes!', 'Равнина гавнина!'],
+  ];
+  const PHRASES_S = [
+    ['Дрипчик!', 'Флип!', 'Бро!', 'Редкость!', 'ДАБЛ ЧИКЕН!', 'Чё как?'],
+    ['Москва-Сити!', 'Бизнес!', 'Всё будет!', 'Семья!', 'Мой человек!', 'Равнина гавнина!', 'Это фиаско, братан!'],
+  ];
+
+  const ACHIEVEMENTS = [
+    { id:'first_tap', icon:'👆', name:'Первый шаг', check: s => s.taps >= 1 },
+    { id:'tap100', icon:'💯', name:'Сотня', check: s => s.taps >= 100 },
+    { id:'tap1000', icon:'🔥', name:'Тысячник', check: s => s.taps >= 1000 },
+    { id:'tap10000', icon:'⚡', name:'Машина', check: s => s.taps >= 10000 },
+    { id:'tap100000', icon:'💫', name:'Безумец', check: s => s.taps >= 100000 },
+    { id:'score1k', icon:'🍊', name:'Первая тысяча', check: s => s.totalEarned >= 1000 },
+    { id:'score100k', icon:'🌟', name:'Сто тысяч', check: s => s.totalEarned >= 100000 },
+    { id:'score1m', icon:'💎', name:'Миллионер', check: s => s.totalEarned >= 1000000 },
+    { id:'score100m', icon:'👑', name:'Сто миллионов', check: s => s.totalEarned >= 100000000 },
+    { id:'rebirth1', icon:'🌌', name:'Новая жизнь', check: s => s.rebirths >= 1 },
+    { id:'rebirth5', icon:'✨', name:'Звездный путь', check: s => s.rebirths >= 5 },
+    { id:'rebirth10', icon:'🌠', name:'Космонавт', check: s => s.rebirths >= 10 },
+    { id:'golden1', icon:'🥇', name:'Золотая рука', check: s => s.goldenCaught >= 1 },
+    { id:'golden10', icon:'🎖️', name:'Коллекционер', check: s => s.goldenCaught >= 10 },
+    { id:'golden50', icon:'💍', name:'Охотник за золотом', check: s => s.goldenCaught >= 50 },
+    { id:'buy1', icon:'🛒', name:'Шопоголик', check: s => s.upgradesBought >= 1 },
+    { id:'buy15', icon:'🏬', name:'Магнат', check: s => s.upgradesBought >= 15 },
+    { id:'buy50', icon:'🏛️', name:'Олигарх', check: s => s.upgradesBought >= 50 },
+    { id:'duo', icon:'💑', name:'Дуэт', check: s => s.stage >= 2 },
+    { id:'msu', icon:'🎓', name:'Студентка', check: s => s.stage >= 4 },
+    { id:'city', icon:'🏙️', name:'Москва-Сити', check: s => s.stage >= 7 },
+    { id:'empire', icon:'🏆', name:'Империя', check: s => s.stage >= 8 },
+    { id:'legend', icon:'🎖️', name:'Легенда', check: s => s.stage >= 9 },
+    { id:'combo30', icon:'🔥', name:'В ударе', check: s => s.maxCombo >= 30 },
+    { id:'combo100', icon:'💥', name:'Неудержимый', check: s => s.maxCombo >= 100 },
+    { id:'casino1', icon:'🎰', name:'Первая ставка', check: s => s.casinoPlays >= 1 },
+    { id:'casino25', icon:'🎲', name:'Азартный', check: s => s.casinoPlays >= 25 },
+    { id:'casinoWin', icon:'💰', name:'Джекпот', check: s => s.casinoWins >= 10 },
+    { id:'minesFirst', icon:'💣', name:'Сапёр', check: s => s.minesPlays >= 1 },
+    { id:'minesWin', icon:'💎', name:'Разминировал', check: s => s.minesWins >= 1 },
+    { id:'minesBig', icon:'🎯', name:'Деминёр', check: s => s.minesBigWin >= 10 },
+    { id:'doubleChicken', icon:'🐔', name:'ДАБЛ ЧИКЕН!', check: s => s.doubleChickens >= 50 },
+    { id:'streak7', icon:'📅', name:'Преданный', check: s => (s.streak?.best || 0) >= 7 },
+  ];
+
+  const SKINS = {
+    v: [
+      { id: 'skin-v-0', name: 'Школьница', icon: '👩‍🎓', price: 0 },
+      { id: 'skin-v-1', name: 'Студентка', icon: '📚', price: 5000 },
+      { id: 'skin-v-2', name: 'CEO', icon: '💼', price: 50000 },
+      { id: 'skin-v-3', name: 'Русалка', icon: '🧜‍♀️', price: 100000 },
+      { id: 'skin-v-4', name: 'Королева', icon: '👸', reqStars: 5 }
+    ],
+    s: [
+      { id: 'skin-s-0', name: 'Школьник', icon: '👕', price: 0 },
+      { id: 'skin-s-1', name: 'Бизнесмен', icon: '👔', price: 8000 },
+      { id: 'skin-s-2', name: 'Футболист', icon: '⚽', price: 25000 },
+      { id: 'skin-s-3', name: 'Король', icon: '🤴', reqStars: 10 }
+    ],
+    catThai: [
+      { id: 'skin-cat-0', name: 'Тайка', icon: '🐈‍⬛', price: 0 },
+      { id: 'skin-cat-1', name: 'Тайка в ошейнике', icon: '🎀', price: 3000 }
+    ],
+    catBrown: [
+      { id: 'skin-tasik-0', name: 'Тасик', icon: '🐈', price: 0 },
+      { id: 'skin-tasik-1', name: 'Тасик в свитере', icon: '🧶', price: 3000 }
+    ]
+  };
+
+  const QUEST_POOL = [
+    { type: 'taps', target: 300, icon: '👆', name: 'Сделай 300 тапов', rewardMult: 1 },
+    { type: 'taps', target: 1000, icon: '👆', name: 'Сделай 1000 тапов', rewardMult: 2 },
+    { type: 'taps', target: 3000, icon: '👆', name: 'Сделай 3000 тапов', rewardMult: 4 },
+    { type: 'buys', target: 3, icon: '🛒', name: 'Купи 3 улучшения', rewardMult: 1.5 },
+    { type: 'buys', target: 8, icon: '🛒', name: 'Купи 8 улучшений', rewardMult: 3 },
+    { type: 'goldens', target: 2, icon: '🍊', name: 'Поймай 2 золотые', rewardMult: 2 },
+    { type: 'goldens', target: 4, icon: '🍊', name: 'Поймай 4 золотые', rewardMult: 4 },
+    { type: 'casino', target: 3, icon: '🎰', name: 'Сыграй 3 раза в казино', rewardMult: 1.5 },
+    { type: 'casinoWin', target: 2, icon: '🎲', name: 'Выиграй 2 раза в казино', rewardMult: 2 },
+    { type: 'casinoWin', target: 5, icon: '🎲', name: 'Выиграй 5 раз в казино', rewardMult: 4 },
+    { type: 'mines', target: 2, icon: '💣', name: 'Сыграй 2 раза в мины', rewardMult: 2 },
+    { type: 'minesWin', target: 2, icon: '💎', name: 'Выиграй 2 раза в мины', rewardMult: 3 },
+    { type: 'combo', target: 20, icon: '🔥', name: 'Достигни комбо x20', rewardMult: 1.5 },
+    { type: 'combo', target: 50, icon: '🔥', name: 'Достигни комбо x50', rewardMult: 3 },
+    { type: 'skins', target: 1, icon: '👕', name: 'Купи 1 скин', rewardMult: 2 },
+    { type: 'doubleChicken', target: 5, icon: '🐔', name: '5 ДАБЛ ЧИКЕНОВ', rewardMult: 2 },
+  ];
+
+  const WEEKLY_QUESTS = [
+    { type: 'taps', target: 20000, icon: '👆', name: '20 000 тапов за неделю', rewardMult: 15 },
+    { type: 'buys', target: 40, icon: '🛒', name: '40 улучшений за неделю', rewardMult: 15 },
+    { type: 'goldens', target: 15, icon: '🍊', name: '15 золотых за неделю', rewardMult: 20 },
+    { type: 'casinoWin', target: 20, icon: '🎲', name: '20 побед в казино за неделю', rewardMult: 25 },
+  ];
+
+  const STREAK_REWARDS = [
+    { icon: '🍊', mult: 5, label: 'x5' },
+    { icon: '🍊', mult: 10, label: 'x10' },
+    { icon: '⭐', mult: 0, label: '1⭐' },
+    { icon: '🍊', mult: 50, label: 'x50' },
+    { icon: '🍊', mult: 100, label: 'x100' },
+    { icon: '⭐', mult: 0, label: '2⭐' },
+    { icon: '👑', mult: 500, label: 'x500+⭐' },
+  ];
+
+  // ============== STATE ==============
+  const SAVE_KEY = 'vasilisa_tap_v13';
+  const ACH_KEY = 'vasilisa_ach_v13';
+
+  let state = {
+    score: 0, totalEarned: 0, stage: 0, levels: {},
+    taps: 0, goldenCaught: 0, upgradesBought: 0, achievements: {},
+    lastSeen: 0, soundMuted: false, musicMuted: false, stars: 0, rebirths: 0,
+    ownedSkins: ['skin-v-0', 'skin-s-0', 'skin-cat-0', 'skin-tasik-0'],
+    activeSkins: { v: 'skin-v-0', s: 'skin-s-0', catThai: 'skin-cat-0', catBrown: 'skin-tasik-0' },
+    daily: { date: 0, quests: [] },
+    weekly: { week: 0, quests: [] },
+    thaiSkillEnd: 0, brownSkillEnd: 0, thaiCd: 0, brownCd: 0,
+    combo: 0, lastTapTime: 0, maxCombo: 0,
+    casinoPlays: 0, casinoWins: 0, casinoLost: 0,
+    minesPlays: 0, minesWins: 0, minesBigWin: 0,
+    doubleChickens: 0,
+    streak: { lastClaimDate: 0, current: 0, best: 0 },
+    casinoBet: 100,
+    // Mines active game state (not saved but initialized here)
+    minesActive: { playing: false, cells: [], mineCount: 3, bet: 0, safeRevealed: 0 }
+  };
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) Object.assign(state, JSON.parse(raw));
+    const ach = localStorage.getItem(ACH_KEY);
+    if (ach) state.achievements = JSON.parse(ach);
+    // Ensure new fields
+    if (!state.minesActive) state.minesActive = { playing: false, cells: [], mineCount: 3, bet: 0, safeRevealed: 0 };
+    if (!state.streak) state.streak = { lastClaimDate: 0, current: 0, best: 0 };
+    state.minesPlays = state.minesPlays || 0;
+    state.minesWins = state.minesWins || 0;
+    state.minesBigWin = state.minesBigWin || 0;
+  } catch(e) {}
+
+  function save() {
+    try {
+      state.lastSeen = Date.now();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+      localStorage.setItem(ACH_KEY, JSON.stringify(state.achievements));
+    } catch(e) {}
+  }
+
+  // ============== AUDIO ==============
+  let audioCtx = null, musicInterval = null;
+  function initAudio() { if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+  function beep(freq, dur, vol, type) {
+    if (!audioCtx || state.soundMuted) return;
+    try {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq; g.gain.value = vol || 0.05;
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+  const sndTap = () => beep(540 + Math.random()*180, 0.07, 0.035, 'triangle');
+  const sndDoubleChicken = () => { beep(880, 0.1, 0.07, 'square'); setTimeout(()=>beep(1320, 0.15, 0.05, 'sine'), 60); setTimeout(()=>beep(1760, 0.2, 0.06, 'square'), 130); };
+  const sndBuy = () => { beep(523, 0.09, 0.05); setTimeout(()=>beep(784, 0.12, 0.05), 70); };
+  const sndGolden = () => { beep(1046, 0.08, 0.07); setTimeout(()=>beep(1318, 0.08, 0.07), 80); setTimeout(()=>beep(1568, 0.13, 0.07), 160); };
+  const sndStage = () => { beep(659, 0.1, 0.06); setTimeout(()=>beep(880, 0.1, 0.06), 90); setTimeout(()=>beep(1175, 0.18, 0.06), 180); };
+  const sndAch = () => { beep(880, 0.08, 0.05); setTimeout(()=>beep(1175, 0.1, 0.05), 80); setTimeout(()=>beep(1568, 0.15, 0.05), 170); };
+  const sndRebirth = () => { beep(440, 0.2, 0.06); setTimeout(()=>beep(554, 0.2, 0.06), 100); setTimeout(()=>beep(659, 0.2, 0.06), 200); setTimeout(()=>beep(880, 0.4, 0.08), 300); };
+  const sndSkill = () => { beep(600, 0.15, 0.08, 'sawtooth'); setTimeout(()=>beep(800, 0.2, 0.08, 'sawtooth'), 100); };
+  const sndWin = () => { beep(523, 0.1, 0.07); setTimeout(()=>beep(659, 0.1, 0.07), 90); setTimeout(()=>beep(784, 0.1, 0.07), 180); setTimeout(()=>beep(1046, 0.3, 0.08), 270); };
+  const sndLose = () => { beep(400, 0.15, 0.06, 'sawtooth'); setTimeout(()=>beep(300, 0.2, 0.06, 'sawtooth'), 100); setTimeout(()=>beep(200, 0.3, 0.06, 'sawtooth'), 200); };
+  const sndSpin = () => { for(let i=0;i<6;i++) setTimeout(()=>beep(300 + i*100, 0.04, 0.03, 'square'), i*50); };
+  const sndCombo = () => { beep(700, 0.05, 0.05, 'square'); setTimeout(()=>beep(1000, 0.05, 0.05, 'square'), 40); };
+  const sndMines = () => { beep(200, 0.4, 0.08, 'sawtooth'); setTimeout(()=>beep(150, 0.5, 0.08, 'sawtooth'), 150); setTimeout(()=>beep(100, 0.6, 0.08, 'sawtooth'), 300); };
+
+  function playMusicNote() {
+    if (!audioCtx || state.musicMuted) return;
+    const notes = [261.63, 329.63, 392.00, 523.25];
+    const f = notes[Math.floor(Math.random() * notes.length)];
+    try {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.02;
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3);
+      o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 3);
+    } catch(e) {}
+  }
+  function toggleMusic() {
+    initAudio(); state.musicMuted = !state.musicMuted;
+    document.getElementById('musicBtn').textContent = state.musicMuted ? '🎵❌' : '🎵';
+    if (!state.musicMuted && !musicInterval) musicInterval = setInterval(playMusicNote, 2000);
+    else if (state.musicMuted && musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+    save();
+  }
+
+  // ============== CANVAS ==============
+  const canvas = document.getElementById('fx-canvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function spawnParticle(x, y, text, color, size = 20) {
+    if (particles.length > 30) particles.shift();
+    particles.push({ x, y, text, color, size, vx: (Math.random() - 0.5) * 3, vy: -Math.random() * 4 - 1, life: 1, decay: 0.022 + Math.random() * 0.02 });
+  }
+
+  function updateParticles() {
+    if (particles.length === 0) { requestAnimationFrame(updateParticles); return; }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= p.decay;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.font = `900 ${p.size}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(updateParticles);
+  }
+  requestAnimationFrame(updateParticles);
+
+  // ============== HELPERS ==============
+  function fmt(n) {
+    n = Math.floor(n);
+    if (n < 1000) return n.toString();
+    if (n < 1e6) return (n/1000).toFixed(n < 10000 ? 1 : 0).replace('.0','') + 'K';
+    if (n < 1e9) return (n/1e6).toFixed(n < 1e7 ? 1 : 0).replace('.0','') + 'M';
+    return (n/1e9).toFixed(1).replace('.0','') + 'B';
+  }
+  function getRebirthMultiplier() { return 1 + (state.stars * 0.25); }
+  function getSkinBonus() { return 1 + (Math.max(0, state.ownedSkins.length - 4) * 0.05); }
+  function getComboMultiplier() {
+    if (state.combo >= 100) return 3;
+    if (state.combo >= 50) return 2.5;
+    if (state.combo >= 30) return 2;
+    if (state.combo >= 15) return 1.5;
+    return 1;
+  }
+  function getCost(item) { return Math.floor(item.baseCost * Math.pow(1.6, state.levels[item.id] || 0)); }
+
+  function getBaseTapValue() {
+    let v = 1;
+    for (const u of UPGRADES) if (u.type === 'tap') v += u.value * (state.levels[u.id] || 0);
+    return Math.floor(v * getRebirthMultiplier() * getSkinBonus());
+  }
+  function getTapValue() {
+    let mult = getComboMultiplier();
+    if (Date.now() < state.thaiSkillEnd) mult *= 3;
+    return Math.floor(getBaseTapValue() * mult);
+  }
+  function getPassive() {
+    let v = 0;
+    for (const u of UPGRADES) if (u.type === 'passive') v += u.value * (state.levels[u.id] || 0);
+    let mult = getRebirthMultiplier() * getSkinBonus();
+    if (Date.now() < state.brownSkillEnd) mult *= 2;
+    return Math.floor(v * mult);
+  }
+  function getDoubleChickenChance() {
+    if (Date.now() < state.thaiSkillEnd) return 1.0;
+    return 0.12;
+  }
+
+  // ============== DOM ==============
+  const $ = id => document.getElementById(id);
+  const appEl = $('app'), scoreEl = $('scoreVal'), perSecEl = $('perSec'), starBadgeEl = $('starBadge');
+  const stageEl = $('stageName'), progEl = $('progressFill'), tapBtn = $('tapBtn'), tapZone = $('tapZone');
+  const charsEl = $('chars'), charV = $('charV'), charS = $('charS'), tabBody = $('tabBody');
+  const toastEl = $('toast'), bubbleEl = $('bubble'), maniaEl = $('maniaTimer'), soundBtn = $('soundBtn');
+  const musicBtn = $('musicBtn'), catThai = $('catThai'), catBrown = $('catBrown');
+  const catBrownContainer = $('catBrownContainer'), skillThai = $('skillThai'), skillBrown = $('skillBrown');
+  const comboBadgeEl = $('comboBadge'), comboIndicator = $('comboIndicator');
+
+  let currentTab = 'shop', shopBuilt = false;
+  let lastShopUpdate = 0;
+
+  // ============== UI ==============
+  function checkStage() {
+    let newStage = state.stage;
+    for (let i = STAGES.length - 1; i >= 0; i--) {
+      if (state.totalEarned >= STAGES[i].need) { newStage = i; break; }
+    }
+    if (newStage > state.stage) {
+      state.stage = newStage;
+      showToast('НОВЫЙ ЭТАП', STAGES[newStage].name, '');
+      sndStage(); if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      updateDuo(); checkAchievements();
+      if (currentTab === 'story') renderStory();
+    }
+  }
+
+  function updateDuo() {
+    if (state.stage >= 2) { charsEl.classList.add('duo'); catBrownContainer.classList.remove('hidden'); }
+    else { charsEl.classList.remove('duo'); catBrownContainer.classList.add('hidden'); }
+    applySkins();
+  }
+
+  function showToast(small, big, cls) {
+    toastEl.className = 'toast' + (cls ? ' ' + cls : '');
+    toastEl.innerHTML = `<div class="t-small">${small}</div>${big}`;
+    toastEl.classList.remove('show'); void toastEl.offsetWidth; toastEl.classList.add('show');
+  }
+
+  function updateHeader() {
+    stageEl.textContent = STAGES[state.stage].name;
+    const cur = STAGES[state.stage], next = STAGES[state.stage + 1];
+    if (next) {
+      const pct = Math.min(100, ((state.totalEarned - cur.need) / (next.need - cur.need)) * 100);
+      progEl.style.width = pct + '%';
+    } else progEl.style.width = '100%';
+  }
+
+  // FAST score update (on tap) — just number + bump
+  function updateScoreNumber(bump) {
+    scoreEl.textContent = fmt(state.score);
+    if (bump) {
+      scoreEl.classList.add('bump');
+      clearTimeout(scoreEl._t);
+      scoreEl._t = setTimeout(() => scoreEl.classList.remove('bump'), 90);
+    }
+  }
+
+  // FULL stats update (1x per second)
+  function updateStats() {
+    perSecEl.textContent = '+' + fmt(getPassive()) + '/сек';
+    if (state.combo >= 5) {
+      comboBadgeEl.style.display = 'inline-block';
+      comboBadgeEl.textContent = `🔥 x${state.combo} · ×${getComboMultiplier()}`;
+    } else comboBadgeEl.style.display = 'none';
+
+    if (state.stars > 0 || state.ownedSkins.length > 4) {
+      starBadgeEl.style.display = 'inline-block';
+      let txt = [];
+      if (state.stars > 0) txt.push(`⭐ ${state.stars} · x${getRebirthMultiplier().toFixed(2)}`);
+      if (state.ownedSkins.length > 4) txt.push(`👕 +${Math.round((getSkinBonus()-1)*100)}%`);
+      starBadgeEl.textContent = txt.join(' | ');
+    } else starBadgeEl.style.display = 'none';
+
+    const lvl = state.levels['shpora'] || 0;
+    tapBtn.className = 'tap-btn';
+    if (lvl > 20) tapBtn.classList.add('lvl-3');
+    else if (lvl > 10) tapBtn.classList.add('lvl-2');
+    else if (lvl > 5) tapBtn.classList.add('lvl-1');
+    if (isMania()) tapBtn.classList.add('mania');
+  }
+
+  let maniaEnd = 0;
+  function isMania() { return Date.now() < maniaEnd; }
+  function startMania(sec) { maniaEnd = Date.now() + sec * 1000; tapBtn.classList.add('mania'); maniaEl.classList.add('active'); }
+  function updateManiaUI() {
+    if (isMania()) {
+      maniaEl.textContent = `🔥 x3 · ${Math.ceil((maniaEnd - Date.now()) / 1000)}s`;
+      maniaEl.classList.add('active');
+    } else { maniaEl.classList.remove('active'); tapBtn.classList.remove('mania'); }
+  }
+
+  function bounceChars() {
+    [charV, charS, catThai, catBrown].forEach(c => {
+      if(!c) return;
+      c.classList.remove('bounce'); void c.offsetWidth; c.classList.add('bounce');
+    });
+  }
+
+  let bubbleTimeout = null;
+  function speak() {
+    if (Math.random() > 0.35) return;
+    const useSasha = state.stage >= 2 && Math.random() < 0.4;
+    let phrases = useSasha ? (state.stage >= 6 ? PHRASES_S[1] : PHRASES_S[0]) : PHRASES_V[Math.min(state.stage, PHRASES_V.length - 1)];
+    bubbleEl.textContent = phrases[Math.floor(Math.random() * phrases.length)];
+    bubbleEl.classList.add('show');
+    clearTimeout(bubbleTimeout);
+    bubbleTimeout = setTimeout(() => bubbleEl.classList.remove('show'), 1300);
+  }
+
+  function showComboIndicator(text) {
+    comboIndicator.textContent = text;
+    comboIndicator.classList.remove('show');
+    void comboIndicator.offsetWidth;
+    comboIndicator.classList.add('show');
+  }
+
+  function updateCombo() {
+    const now = Date.now();
+    if (now - state.lastTapTime < 800) {
+      state.combo++;
+      if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+      if ([15, 30, 50, 100].includes(state.combo)) {
+        const mult = getComboMultiplier();
+        showComboIndicator(`🔥 КОМБО x${state.combo} · ×${mult}!`);
+        sndCombo();
+        spawnParticle(window.innerWidth/2, window.innerHeight/2, `×${mult}!`, '#ff8ac4', 28);
+      }
+    } else {
+      state.combo = 1;
+    }
+    state.lastTapTime = now;
+  }
+
+  // ============== TAP ==============
+  function doTap(clientX, clientY, isAuto = false) {
+    const isDoubleChicken = Math.random() < getDoubleChickenChance();
+    let mul = isMania() ? 3 : 1;
+    if (isDoubleChicken) mul *= 7;
+    const gain = getTapValue() * mul;
+
+    state.score += gain; state.totalEarned += gain;
+    if (!isAuto) {
+      state.taps++;
+      updateCombo();
+      bounceChars(); speak();
+    }
+
+    if (isDoubleChicken) {
+      state.doubleChickens++;
+      spawnParticle(clientX, clientY, 'ДАБЛ ЧИКЕН! +' + fmt(gain), '#ff3d3d', 24);
+      if (!isAuto) {
+        showDoubleChickenText();
+        sndDoubleChicken();
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+      }
+    } else {
+      spawnParticle(clientX, clientY, '+' + fmt(gain), isMania() ? '#ffb800' : '#ffd966', 20);
+      if (!isAuto) { sndTap(); if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); }
+    }
+
+    updateScoreNumber(true);
+    checkStage(); updateHeader();
+    if (currentTab === 'shop') updateShopThrottled();
+    if (!isAuto) updateQuestProgress('taps', 1);
+    if (state.combo > 0) updateQuestProgress('combo', state.combo, true);
+    checkAchievements();
+  }
+
+  function showDoubleChickenText() {
+    const el = document.createElement('div');
+    el.className = 'double-chicken';
+    el.textContent = '🐔 ДАБЛ ЧИКЕН!';
+    tapZone.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+  }
+
+  // ============== CAT SKILLS ==============
+  function useThaiSkill() {
+    if (Date.now() < state.thaiCd) return;
+    state.thaiSkillEnd = Date.now() + 10000;
+    state.thaiCd = Date.now() + 45000;
+    sndSkill(); showToast('СПОСОБНОСТЬ', 'Ярость Тайки: 100% ДАБЛ ЧИКЕН!', 'gold');
+    spawnParticle(window.innerWidth/2, window.innerHeight/2, 'ДАБЛ ЧИКЕН!', '#ff0000', 32);
+    save();
+  }
+  function useBrownSkill() {
+    if (Date.now() < state.brownCd) return;
+    state.brownSkillEnd = Date.now() + 15000;
+    state.brownCd = Date.now() + 60000;
+    sndSkill(); showToast('СПОСОБНОСТЬ', 'Золотая лапа: x2 Пассив!', 'gold');
+    spawnParticle(window.innerWidth/2, window.innerHeight/2, 'x2 ДОХОД!', '#ffd966', 30);
+    save();
+  }
+  function updateSkillsUI() {
+    const now = Date.now();
+    if (now < state.thaiSkillEnd) { skillThai.textContent = '🔥 Ярость!'; skillThai.classList.add('active'); }
+    else if (now < state.thaiCd) { skillThai.textContent = `КД: ${Math.ceil((state.thaiCd - now)/1000)}с`; skillThai.classList.remove('active'); }
+    else { skillThai.textContent = '🐾 Ярость'; skillThai.classList.remove('active'); }
+
+    if (now < state.brownSkillEnd) { skillBrown.textContent = '🔥 Доход x2!'; skillBrown.classList.add('active'); }
+    else if (now < state.brownCd) { skillBrown.textContent = `КД: ${Math.ceil((state.brownCd - now)/1000)}с`; skillBrown.classList.remove('active'); }
+    else { skillBrown.textContent = '🐾 Зол. лапа'; skillBrown.classList.remove('active'); }
+  }
+
+  // ============== SHOP ==============
+  function buildShop() {
+    tabBody.innerHTML = '';
+    const wrap = document.createElement('div');
+    for (const u of UPGRADES) {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `<div class="item-icon">${u.icon}</div><div class="item-info"><div class="item-name">${u.name}</div><div class="item-desc">${u.desc}</div><div class="item-lvl">Ур. <span class="lvl">0</span></div></div><button class="buy-btn">🍊 0</button>`;
+      const btn = el.querySelector('.buy-btn');
+      btn.addEventListener('click', (e) => { e.stopPropagation(); buy(u, el); });
+      u._el = el; u._btn = btn; u._lvl = el.querySelector('.lvl');
+      wrap.appendChild(el);
+    }
+    tabBody.appendChild(wrap); shopBuilt = true; updateShop();
+  }
+  function updateShop() {
+    if (!shopBuilt) return;
+    for (const u of UPGRADES) {
+      const cost = getCost(u);
+      u._lvl.textContent = state.levels[u.id] || 0;
+      const can = state.score >= cost;
+      u._btn.textContent = '🍊 ' + fmt(cost);
+      u._btn.classList.toggle('disabled', !can);
+      u._el.classList.toggle('affordable', can);
+    }
+  }
+  function updateShopThrottled() {
+    const now = Date.now();
+    if (now - lastShopUpdate > 250) { lastShopUpdate = now; updateShop(); }
+  }
+  function buy(u, el) {
+    const cost = getCost(u);
+    if (state.score < cost) return;
+    state.score -= cost; state.levels[u.id] = (state.levels[u.id] || 0) + 1; state.upgradesBought++;
+    sndBuy(); if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    updateScoreNumber(true); updateShop(); updateHeader(); updateStats();
+    updateQuestProgress('buys', 1);
+    checkAchievements(); save();
+  }
+
+  // ============== SKINS ==============
+  function applySkins() {
+    const apply = (el, id) => {
+      el.className = el.className.replace(/skin-[\w-]+/g, '').trim();
+      el.classList.add(id);
+    };
+    apply(charV, state.activeSkins.v);
+    apply(charS, state.activeSkins.s);
+    apply(catThai, state.activeSkins.catThai);
+    apply(catBrown, state.activeSkins.catBrown);
+  }
+
+  function renderSkins() {
+    tabBody.innerHTML = '';
+    const categories = [
+      { key: 'v', label: '👩 Василиса' }, { key: 's', label: '👦 Саша' },
+      { key: 'catThai', label: '🐈‍⬛ Тайка' }, { key: 'catBrown', label: '🐈 Тасик' }
+    ];
+    categories.forEach(cat => {
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:14px; font-weight:800; margin: 12px 0 8px; color:#a78bff;';
+      title.textContent = cat.label;
+      tabBody.appendChild(title);
+      const grid = document.createElement('div'); grid.className = 'skin-grid';
+      SKINS[cat.key].forEach(skin => {
+        const owned = state.ownedSkins.includes(skin.id);
+        const active = state.activeSkins[cat.key] === skin.id;
+        let btnHtml = owned ? (active ? 'Выбрано' : 'Надеть') : (skin.reqStars ? `⭐ ${skin.reqStars}` : `🍊 ${fmt(skin.price)}`);
+        const card = document.createElement('div');
+        card.className = 'skin-card' + (owned ? ' owned' : '') + (active ? ' active' : '');
+        card.innerHTML = `<div class="skin-title">${skin.name}</div><div class="skin-preview">${skin.icon}</div><button class="skin-btn ${owned ? (active ? 'active' : '') : (skin.reqStars ? 'stars' : 'buy')}">${btnHtml}</button>`;
+        const btn = card.querySelector('.skin-btn');
+        btn.onclick = () => {
+          if (owned) {
+            state.activeSkins[cat.key] = skin.id;
+            applySkins(); renderSkins(); save();
+          } else if (skin.reqStars) {
+            if (state.stars >= skin.reqStars) {
+              state.ownedSkins.push(skin.id);
+              state.activeSkins[cat.key] = skin.id;
+              applySkins(); updateScoreNumber(true); sndBuy(); renderSkins();
+              updateQuestProgress('skins', 1); save();
+            } else {
+              showToast('НЕ ХВАТАЕТ ЗВЁЗД', `Нужно ${skin.reqStars} ⭐`, 'ach');
+            }
+          } else if (state.score >= skin.price) {
+            state.score -= skin.price;
+            state.ownedSkins.push(skin.id);
+            state.activeSkins[cat.key] = skin.id;
+            applySkins(); updateScoreNumber(true); sndBuy(); renderSkins();
+            updateQuestProgress('skins', 1); save();
+          }
+        };
+        grid.appendChild(card);
+      });
+      tabBody.appendChild(grid);
+    });
+  }
+
+  // ============== CASINO ==============
+  const WHEEL_SEGMENTS = [
+    { mult: 0, weight: 35 }, { mult: 0.5, weight: 25 }, { mult: 1, weight: 20 },
+    { mult: 2, weight: 10 }, { mult: 3, weight: 5 }, { mult: 5, weight: 3 },
+    { mult: 10, weight: 1.5 }, { mult: 50, weight: 0.5 },
+  ];
+  const SLOT_SYMBOLS = [
+    { sym: '🍊', weight: 30, pay3: 3 }, { sym: '🌟', weight: 25, pay3: 4 },
+    { sym: '💎', weight: 20, pay3: 6 }, { sym: '👑', weight: 15, pay3: 10 },
+    { sym: '🎰', weight: 10, pay3: 50 },
+  ];
+
+  function minesMult(k, total, mines) {
+    if (k === 0) return 1;
+    let m = 1;
+    for (let i = 0; i < k; i++) m *= (total - i) / (total - mines - i);
+    return m;
+  }
+
+  function renderCasino() {
+    tabBody.innerHTML = '';
+    const ma = state.minesActive;
+    const cellsHtml = ma.cells.map((c, i) => {
+      let cls = 'mine-cell';
+      let content = '';
+      if (c.revealed) {
+        cls += c.mine ? ' mine' : ' safe';
+        content = c.mine ? '💣' : '💎';
+      }
+      return `<div class="${cls}" data-idx="${i}">${content}</div>`;
+    }).join('');
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="casino-card">
+        <div class="casino-title">🎡 Колесо Фортуны</div>
+        <div class="casino-desc">Крути колесо! Выигрыш от 0 до ×50.</div>
+        <div class="wheel-wrap"><div class="wheel-pointer">▼</div><div class="wheel" id="wheel"></div></div>
+        <div class="bet-row">
+          <input type="number" class="bet-input" id="wheelBet" value="${state.casinoBet}" min="10">
+          <button class="bet-quick" data-target="wheelBet" data-mult="0.5">½</button>
+          <button class="bet-quick" data-target="wheelBet" data-mult="2">×2</button>
+          <button class="bet-quick" data-target="wheelBet" data-mult="max">МАКС</button>
+        </div>
+        <button class="play-btn" id="wheelPlay">🎡 Крутить</button>
+        <div class="wheel-result" id="wheelResult"></div>
+      </div>
+
+      <div class="casino-card">
+        <div class="casino-title">🪙 Орёл или Решка</div>
+        <div class="casino-desc">50/50 — удвой ставку или потеряй всё!</div>
+        <div class="coin" id="coin">🪙</div>
+        <div class="bet-row">
+          <input type="number" class="bet-input" id="coinBet" value="${state.casinoBet}" min="10">
+          <button class="bet-quick" data-target="coinBet" data-mult="0.5">½</button>
+          <button class="bet-quick" data-target="coinBet" data-mult="2">×2</button>
+          <button class="bet-quick" data-target="coinBet" data-mult="max">МАКС</button>
+        </div>
+        <button class="play-btn" id="coinPlay">🪙 Бросить монету</button>
+        <div class="coin-result" id="coinResult"></div>
+      </div>
+
+      <div class="casino-card">
+        <div class="casino-title">🎰 Слоты</div>
+        <div class="casino-desc">2 одинаковых = ×1.2, 3 одинаковых = от ×3 до ×50!</div>
+        <div class="slots">
+          <div class="slot-reel" id="reel1">🍊</div>
+          <div class="slot-reel" id="reel2">🍊</div>
+          <div class="slot-reel" id="reel3">🍊</div>
+        </div>
+        <div class="bet-row">
+          <input type="number" class="bet-input" id="slotBet" value="${state.casinoBet}" min="10">
+          <button class="bet-quick" data-target="slotBet" data-mult="0.5">½</button>
+          <button class="bet-quick" data-target="slotBet" data-mult="2">×2</button>
+          <button class="bet-quick" data-target="slotBet" data-mult="max">МАКС</button>
+        </div>
+        <button class="play-btn" id="slotPlay">🎰 Крутить слоты</button>
+        <div class="slot-result" id="slotResult"></div>
+      </div>
+
+      <div class="casino-card">
+        <div class="casino-title">💣 Мины</div>
+        <div class="casino-desc">Открывай безопасные клетки — выигрыш растёт. Наткнёшься на мину — потеряешь всё. Забери выигрыш в любой момент!</div>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <button class="mine-diff ${ma.mineCount === 3 ? 'active' : ''}" data-mines="3" ${ma.playing ? 'disabled' : ''}>🐣 3 мины</button>
+          <button class="mine-diff ${ma.mineCount === 5 ? 'active' : ''}" data-mines="5" ${ma.playing ? 'disabled' : ''}>🔥 5 мин</button>
+          <button class="mine-diff ${ma.mineCount === 10 ? 'active' : ''}" data-mines="10" ${ma.playing ? 'disabled' : ''}>💀 10 мин</button>
+        </div>
+        <div class="mines-grid" id="minesGrid">${cellsHtml || Array(25).fill('<div class="mine-cell"></div>').join('')}</div>
+        <div class="mines-info" id="minesInfo">
+          <span>Открыто: <b>${ma.safeRevealed}</b> / ${25 - ma.mineCount}</span>
+          <span>Множитель: <b>×${minesMult(ma.safeRevealed, 25, ma.mineCount).toFixed(2)}</b></span>
+        </div>
+        <div class="bet-row">
+          <input type="number" class="bet-input" id="minesBet" value="${ma.bet || state.casinoBet}" min="10" ${ma.playing ? 'disabled' : ''}>
+          <button class="bet-quick" data-target="minesBet" data-mult="0.5" ${ma.playing ? 'disabled' : ''}>½</button>
+          <button class="bet-quick" data-target="minesBet" data-mult="2" ${ma.playing ? 'disabled' : ''}>×2</button>
+          <button class="bet-quick" data-target="minesBet" data-mult="max" ${ma.playing ? 'disabled' : ''}>МАКС</button>
+        </div>
+        <button class="play-btn" id="minesStart" ${ma.playing ? 'style="display:none"' : ''}>💣 Начать игру</button>
+        <button class="play-btn" id="minesCashout" ${ma.playing && ma.safeRevealed > 0 ? '' : 'style="display:none"'} style="${ma.playing && ma.safeRevealed > 0 ? 'background:linear-gradient(135deg,#7effc0,#00d488);color:#0a1f14;' : ''}">💰 Забрать ${fmt(Math.floor(ma.bet * minesMult(ma.safeRevealed, 25, ma.mineCount)))} 🍊</button>
+        <div class="mines-result" id="minesResult"></div>
+      </div>
+
+      <div style="text-align:center; font-size:11px; color:rgba(255,255,255,0.4); padding:10px;">
+        🎲 Всего игр: ${state.casinoPlays + state.minesPlays} · Побед: ${state.casinoWins + state.minesWins} · Проигрышей: ${state.casinoLost}
+      </div>
+    `;
+    tabBody.appendChild(wrap);
+
+    wrap.querySelectorAll('.bet-quick').forEach(b => {
+      b.onclick = () => {
+        const targetId = b.dataset.target;
+        const input = document.getElementById(targetId);
+        const mult = b.dataset.mult;
+        if (mult === 'max') input.value = Math.floor(state.score);
+        else input.value = Math.max(10, Math.floor((parseFloat(input.value) || 0) * parseFloat(mult)));
+      };
+    });
+
+    // WHEEL
+    let wheelSpinning = false;
+    $('wheelPlay').onclick = () => {
+      if (wheelSpinning) return;
+      const bet = Math.floor(parseFloat($('wheelBet').value) || 0);
+      if (bet < 10) { showToast('МИН. СТАВКА', '10 мандаринок', 'lose'); return; }
+      if (state.score < bet) { showToast('НЕ ХВАТАЕТ', 'У тебя нет столько!', 'lose'); return; }
+      wheelSpinning = true;
+      state.score -= bet; state.casinoPlays++; updateScoreNumber(false);
+      sndSpin();
+      const totalWeight = WHEEL_SEGMENTS.reduce((a, s) => a + s.weight, 0);
+      let r = Math.random() * totalWeight, chosen = WHEEL_SEGMENTS[0], chosenIndex = 0;
+      for (let i = 0; i < WHEEL_SEGMENTS.length; i++) { r -= WHEEL_SEGMENTS[i].weight; if (r <= 0) { chosen = WHEEL_SEGMENTS[i]; chosenIndex = i; break; } }
+      const segmentAngle = 360 / WHEEL_SEGMENTS.length;
+      const spins = 5 + Math.floor(Math.random() * 3);
+      const targetAngle = spins * 360 + (360 - chosenIndex * segmentAngle - segmentAngle/2);
+      const wheelEl = $('wheel');
+      wheelEl.style.transition = 'transform 3.5s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+      wheelEl.style.transform = `rotate(${targetAngle}deg)`;
+      setTimeout(() => {
+        const win = Math.floor(bet * chosen.mult);
+        $('wheelResult').textContent = `×${chosen.mult} → ${win > 0 ? '+' + fmt(win) : '0'}`;
+        $('wheelResult').style.color = chosen.mult >= 1 ? '#7effc0' : '#ff3d3d';
+        if (chosen.mult >= 1) { state.casinoWins++; } else { state.casinoLost++; }
+        state.score += win; state.totalEarned += win;
+        if (win > 0) {
+          sndWin(); showToast('🎡 ВЫИГРЫШ!', `×${chosen.mult} → +${fmt(win)}`, 'win');
+          if (chosen.mult >= 10) startMania(5);
+        } else { sndLose(); showToast('🎡 МИМО', 'Повезёт в следующий раз', 'lose'); }
+        updateScoreNumber(true); checkStage(); updateHeader();
+        updateQuestProgress('casino', 1);
+        if (chosen.mult >= 1) updateQuestProgress('casinoWin', 1);
+        checkAchievements(); save();
+        wheelSpinning = false;
+        refreshCasinoStats();
+      }, 3600);
+    };
+
+    // COIN
+    let coinFlipping = false;
+    $('coinPlay').onclick = () => {
+      if (coinFlipping) return;
+      const bet = Math.floor(parseFloat($('coinBet').value) || 0);
+      if (bet < 10) { showToast('МИН. СТАВКА', '10 мандаринок', 'lose'); return; }
+      if (state.score < bet) { showToast('НЕ ХВАТАЕТ', 'У тебя нет столько!', 'lose'); return; }
+      coinFlipping = true;
+      state.score -= bet; state.casinoPlays++; updateScoreNumber(false);
+      sndSpin();
+      const coinEl = $('coin');
+      coinEl.textContent = '🪙'; // reset from previous state
+      coinEl.classList.remove('flipping');
+      void coinEl.offsetWidth;
+      coinEl.classList.add('flipping');
+      setTimeout(() => {
+        const isWin = Math.random() < 0.5;
+        const result = isWin ? bet * 2 : 0;
+        state.score += result; state.totalEarned += result;
+        if (isWin) {
+          state.casinoWins++;
+          coinEl.textContent = '🪙';
+          $('coinResult').textContent = `+${fmt(result)} 🍊`;
+          $('coinResult').style.color = '#7effc0';
+          sndWin(); showToast('🪙 ПОБЕДА!', `Удвоение: +${fmt(result)}`, 'win');
+        } else {
+          state.casinoLost++;
+          coinEl.textContent = '💩';
+          $('coinResult').textContent = `-${fmt(bet)} 🍊`;
+          $('coinResult').style.color = '#ff3d3d';
+          sndLose(); showToast('🪙 ПРОИГРЫШ', `-${fmt(bet)} мандаринок`, 'lose');
+        }
+        updateScoreNumber(true); checkStage(); updateHeader();
+        updateQuestProgress('casino', 1);
+        if (isWin) updateQuestProgress('casinoWin', 1);
+        checkAchievements(); save();
+        coinFlipping = false;
+        refreshCasinoStats();
+      }, 1600);
+    };
+
+    // SLOTS
+    let slotSpinning = false;
+    $('slotPlay').onclick = () => {
+      if (slotSpinning) return;
+      const bet = Math.floor(parseFloat($('slotBet').value) || 0);
+      if (bet < 10) { showToast('МИН. СТАВКА', '10 мандаринок', 'lose'); return; }
+      if (state.score < bet) { showToast('НЕ ХВАТАЕТ', 'У тебя нет столько!', 'lose'); return; }
+      slotSpinning = true;
+      state.score -= bet; state.casinoPlays++; updateScoreNumber(false);
+      sndSpin();
+      const reels = [$('reel1'), $('reel2'), $('reel3')];
+      reels.forEach(r => r.classList.add('spinning'));
+      const intervals = [];
+      reels.forEach((reel, i) => {
+        intervals[i] = setInterval(() => {
+          reel.textContent = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)].sym;
+        }, 80);
+      });
+      const pickSym = () => {
+        const total = SLOT_SYMBOLS.reduce((a, s) => a + s.weight, 0);
+        let r = Math.random() * total;
+        for (const s of SLOT_SYMBOLS) { r -= s.weight; if (r <= 0) return s; }
+        return SLOT_SYMBOLS[0];
+      };
+      const finals = [];
+      [800, 1300, 1800].forEach((t, i) => {
+        setTimeout(() => {
+          clearInterval(intervals[i]);
+          finals[i] = pickSym();
+          reels[i].textContent = finals[i].sym;
+          reels[i].classList.remove('spinning');
+          if (i === 2) {
+            const syms = finals.map(f => f.sym);
+            let winMult = 0, winType = '';
+            if (syms[0] === syms[1] && syms[1] === syms[2]) {
+              const matched = SLOT_SYMBOLS.find(s => s.sym === syms[0]);
+              winMult = matched.pay3; winType = `3× ${syms[0]}`;
+            } else if (syms[0] === syms[1] || syms[1] === syms[2] || syms[0] === syms[2]) {
+              winMult = 1.2; winType = '2 одинаковых';
+            }
+            const win = Math.floor(bet * winMult);
+            state.score += win; state.totalEarned += win;
+            if (winMult >= 1) {
+              state.casinoWins++;
+              $('slotResult').textContent = `🎉 ${winType} — +${fmt(win)} 🍊`;
+              $('slotResult').style.color = '#7effc0';
+              sndWin(); showToast('🎰 ВЫИГРЫШ!', `${winType}: +${fmt(win)}`, 'win');
+              if (winMult >= 10) startMania(10);
+            } else {
+              state.casinoLost++;
+              $('slotResult').textContent = `😢 Мимо — -${fmt(bet)} 🍊`;
+              $('slotResult').style.color = '#ff3d3d';
+              sndLose(); showToast('🎰 МИМО', `-${fmt(bet)} мандаринок`, 'lose');
+            }
+            updateScoreNumber(true); checkStage(); updateHeader();
+            updateQuestProgress('casino', 1);
+            if (winMult >= 1) updateQuestProgress('casinoWin', 1);
+            checkAchievements(); save();
+            slotSpinning = false;
+            refreshCasinoStats();
+          }
+        }, t);
+      });
+    };
+
+    // MINES
+    wrap.querySelectorAll('.mine-diff').forEach(b => {
+      b.onclick = () => {
+        if (state.minesActive.playing) return;
+        state.minesActive.mineCount = parseInt(b.dataset.mines);
+        save(); renderCasino();
+      };
+    });
+
+    wrap.querySelectorAll('.mine-cell').forEach((cell, idx) => {
+      cell.onclick = () => revealMine(idx);
+    });
+
+    $('minesStart').onclick = () => startMines();
+
+    const cashoutBtn = $('minesCashout');
+    if (cashoutBtn) cashoutBtn.onclick = () => cashoutMines();
+  }
+
+  function refreshCasinoStats() {
+    if (currentTab !== 'casino') return;
+    const stats = tabBody.querySelector('div[style*="Всего игр"]');
+    if (stats) stats.innerHTML = `🎲 Всего игр: ${state.casinoPlays + state.minesPlays} · Побед: ${state.casinoWins + state.minesWins} · Проигрышей: ${state.casinoLost}`;
+  }
+
+  function startMines() {
+    const ma = state.minesActive;
+    if (ma.playing) return;
+    const bet = Math.floor(parseFloat($('minesBet').value) || 0);
+    if (bet < 10) { showToast('МИН. СТАВКА', '10 мандаринок', 'lose'); return; }
+    if (state.score < bet) { showToast('НЕ ХВАТАЕТ', 'У тебя нет столько!', 'lose'); return; }
+
+    state.score -= bet;
+    state.casinoBet = bet;
+    state.minesPlays++;
+
+    ma.playing = true;
+    ma.bet = bet;
+    ma.safeRevealed = 0;
+    ma.cells = [];
+    for (let i = 0; i < 25; i++) ma.cells.push({ mine: false, revealed: false });
+    const minePos = new Set();
+    while (minePos.size < ma.mineCount) {
+      minePos.add(Math.floor(Math.random() * 25));
+    }
+    minePos.forEach(i => ma.cells[i].mine = true);
+
+    // re-render grid
+    const grid = $('minesGrid');
+    if (grid) {
+      grid.innerHTML = ma.cells.map((c, i) => `<div class="mine-cell" data-idx="${i}"></div>`).join('');
+      grid.querySelectorAll('.mine-cell').forEach((cell, idx) => {
+        cell.onclick = () => revealMine(idx);
+      });
+    }
+    $('minesStart').style.display = 'none';
+    $('minesCashout').style.display = 'none';
+    $('minesInfo').innerHTML = `<span>Открыто: <b>0</b> / ${25 - ma.mineCount}</span><span>Множитель: <b>×1.00</b></span>`;
+    $('minesResult').textContent = '';
+    $('minesBet').disabled = true;
+    document.querySelectorAll('[data-target="minesBet"]').forEach(b => b.disabled = true);
+    updateScoreNumber(false);
+    save();
+  }
+
+  function revealMine(idx) {
+    const ma = state.minesActive;
+    if (!ma.playing) return;
+    const cell = ma.cells[idx];
+    if (!cell || cell.revealed) return;
+
+    const grid = $('minesGrid');
+    const cellEl = grid.children[idx];
+
+    cell.revealed = true;
+
+    if (cell.mine) {
+      // LOSE
+      cellEl.textContent = '💣';
+      cellEl.classList.add('mine');
+      state.casinoLost++;
+      state.minesActive.playing = false;
+      // Reveal all remaining mines
+      ma.cells.forEach((c, i) => {
+        if (!c.revealed && c.mine) {
+          const e = grid.children[i];
+          if (e) { e.textContent = '💣'; e.classList.add('mine'); }
+        }
+      });
+      sndMines(); sndLose();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      $('minesResult').textContent = `💥 БУМ! Потерял ${fmt(ma.bet)} 🍊`;
+      $('minesResult').style.color = '#ff3d3d';
+      showToast('💥 БУМ!', `-${fmt(ma.bet)} мандаринок`, 'lose');
+      finishMinesUI();
+      checkAchievements(); save();
+    } else {
+      // SAFE
+      cellEl.textContent = '💎';
+      cellEl.classList.add('safe');
+      ma.safeRevealed++;
+      const mult = minesMult(ma.safeRevealed, 25, ma.mineCount);
+      const currentWin = Math.floor(ma.bet * mult);
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      beep(600 + ma.safeRevealed * 40, 0.06, 0.04);
+      $('minesInfo').innerHTML = `<span>Открыто: <b>${ma.safeRevealed}</b> / ${25 - ma.mineCount}</span><span>Множитель: <b>×${mult.toFixed(2)}</b></span>`;
+      const cashoutBtn = $('minesCashout');
+      if (cashoutBtn) {
+        cashoutBtn.style.display = 'block';
+        cashoutBtn.style.background = 'linear-gradient(135deg,#7effc0,#00d488)';
+        cashoutBtn.style.color = '#0a1f14';
+        cashoutBtn.textContent = `💰 Забрать ${fmt(currentWin)} 🍊`;
+      }
+      // Win if all safe cells revealed
+      if (ma.safeRevealed === 25 - ma.mineCount) {
+        cashoutMines();
+      }
+      save();
+    }
+  }
+
+  function cashoutMines() {
+    const ma = state.minesActive;
+    if (!ma.playing || ma.safeRevealed === 0) return;
+    const mult = minesMult(ma.safeRevealed, 25, ma.mineCount);
+    const win = Math.floor(ma.bet * mult);
+    state.score += win;
+    state.totalEarned += win;
+    state.minesWins++;
+    if (mult >= 10) state.minesBigWin++;
+    ma.playing = false;
+
+    sndWin();
+    showToast('💰 ЗАБРАЛ!', `${ma.safeRevealed} клеток · ×${mult.toFixed(2)} → +${fmt(win)}`, 'win');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    $('minesResult').textContent = `💰 +${fmt(win)} 🍊`;
+    $('minesResult').style.color = '#7effc0';
+
+    // Reveal all mines
+    const grid = $('minesGrid');
+    ma.cells.forEach((c, i) => {
+      if (!c.revealed && c.mine) {
+        const e = grid.children[i];
+        if (e) { e.textContent = '💣'; e.classList.add('mine'); }
+      }
+    });
+
+    updateScoreNumber(true); checkStage(); updateHeader();
+    updateQuestProgress('mines', 1);
+    updateQuestProgress('minesWin', 1);
+    checkAchievements(); save();
+    finishMinesUI();
+  }
+
+  function finishMinesUI() {
+    const ma = state.minesActive;
+    const grid = $('minesGrid');
+    if (grid) {
+      grid.querySelectorAll('.mine-cell').forEach(c => c.onclick = null);
+    }
+    const startBtn = $('minesStart');
+    if (startBtn) startBtn.style.display = 'block';
+    const cashoutBtn = $('minesCashout');
+    if (cashoutBtn) cashoutBtn.style.display = 'none';
+    const betInput = $('minesBet');
+    if (betInput) betInput.disabled = false;
+    document.querySelectorAll('[data-target="minesBet"]').forEach(b => b.disabled = false);
+    refreshCasinoStats();
+  }
+
+  // ============== STREAK ==============
+  function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+  function getYesterdayKey() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+  function renderStreak() {
+    tabBody.innerHTML = '';
+    const today = getTodayKey();
+    const lastClaim = state.streak.lastClaimDate || '';
+    const canClaim = lastClaim !== today;
+    let current = state.streak.current || 0;
+    if (lastClaim && lastClaim !== today && lastClaim !== getYesterdayKey()) current = 0;
+    const dayInCycle = current % 7;
+    const baseReward = Math.max(1000, getBaseTapValue() * 100);
+
+    const container = document.createElement('div');
+    let daysHtml = '';
+    for (let i = 0; i < 7; i++) {
+      let cls = 'streak-day';
+      if (i < dayInCycle) cls += ' claimed';
+      else if (i === dayInCycle && canClaim) cls += ' today';
+      const r = STREAK_REWARDS[i];
+      daysHtml += `<div class="${cls}">${r.icon}<br>${r.label}</div>`;
+    }
+    container.innerHTML = `
+      <div class="streak-wrap">
+        <div class="streak-title">🎁 Ежедневный стрик</div>
+        <div class="streak-bar">${daysHtml}</div>
+        <div style="text-align:center;font-size:12px;color:rgba(255,255,255,0.6);margin:8px 0;">
+          Текущий: <b style="color:#ffd966">${current} дней</b> · Рекорд: ${state.streak.best || 0}
+        </div>
+        <button class="streak-claim" id="streakBtn" ${canClaim ? '' : 'disabled'}>
+          ${canClaim ? `Забрать награду дня ${dayInCycle + 1}` : 'Приходи завтра!'}
+        </button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);text-align:center;padding:10px;line-height:1.6;">
+        Заходи каждый день — получай награды!<br>День 7 = джекпот 🎉<br>Пропустишь — стрик сбросится 😢
+      </div>
+    `;
+    tabBody.appendChild(container);
+
+    if (canClaim) {
+      $('streakBtn').onclick = () => {
+        current++;
+        if (current > (state.streak.best || 0)) state.streak.best = current;
+        state.streak.current = current;
+        state.streak.lastClaimDate = today;
+        const r = STREAK_REWARDS[(current - 1) % 7];
+        if (r.icon === '⭐') {
+          state.stars += (r.label === '2⭐' ? 2 : 1);
+          showToast('🎁 СТРИК!', `+${r.label}`, 'ach');
+        } else if ((current - 1) % 7 === 6) {
+          const jackpot = baseReward * 500;
+          state.score += jackpot; state.totalEarned += jackpot;
+          state.stars += 1;
+          showToast('🎁 ДЖЕКПОТ!', `+${fmt(jackpot)} 🍊 + 1 ⭐`, 'gold');
+          spawnParticle(window.innerWidth/2, window.innerHeight/2, 'ДЖЕКПОТ!', '#ffd966', 36);
+        } else {
+          const rewardAmount = baseReward * r.mult;
+          state.score += rewardAmount; state.totalEarned += rewardAmount;
+          showToast('🎁 СТРИК!', `+${fmt(rewardAmount)} 🍊`, 'ach');
+        }
+        sndWin();
+        updateScoreNumber(true); checkStage(); updateHeader(); updateStats();
+        checkAchievements(); save(); renderStreak();
+      };
+    }
+  }
+
+  // ============== QUESTS ==============
+  function getWeekKey() {
+    const d = new Date();
+    const start = new Date(d.getFullYear(), 0, 1);
+    const days = Math.floor((d - start) / 86400000);
+    return `${d.getFullYear()}-W${Math.floor(days / 7)}`;
+  }
+  function generateDailyQuests() {
+    const shuffled = [...QUEST_POOL].sort(() => Math.random() - 0.5);
+    const baseReward = Math.max(500, Math.floor(getBaseTapValue() * 100));
+    state.daily = { date: getTodayKey(), quests: shuffled.slice(0, 6).map(q => ({ ...q, current: 0, done: false, reward: Math.floor(baseReward * q.rewardMult) })) };
+    save();
+  }
+  function generateWeeklyQuests() {
+    const baseReward = Math.max(5000, Math.floor(getBaseTapValue() * 500));
+    state.weekly = { week: getWeekKey(), quests: WEEKLY_QUESTS.map(q => ({ ...q, current: 0, done: false, reward: Math.floor(baseReward * q.rewardMult) })) };
+    save();
+  }
+  function checkDailyQuests() {
+    if (!state.daily.date || state.daily.date !== getTodayKey()) generateDailyQuests();
+    if (!state.weekly.week || state.weekly.week !== getWeekKey()) generateWeeklyQuests();
+  }
+  function updateQuestProgress(type, amount, isCombo = false) {
+    let changed = false;
+    state.daily.quests.forEach(q => {
+      if (q.type === type && !q.done) {
+        if (isCombo) q.current = Math.max(q.current, amount);
+        else q.current += amount;
+        if (q.current >= q.target) { q.current = q.target; q.done = true; showToast('ЗАДАНИЕ ВЫПОЛНЕНО!', q.name, 'ach'); }
+        changed = true;
+      }
+    });
+    state.weekly.quests.forEach(q => {
+      if (q.type === type && !q.done) {
+        if (isCombo) q.current = Math.max(q.current, amount);
+        else q.current += amount;
+        if (q.current >= q.target) { q.current = q.target; q.done = true; showToast('НЕДЕЛЬНОЕ ВЫПОЛНЕНО!', q.name, 'ach'); }
+        changed = true;
+      }
+    });
+    if (changed) { save(); if (currentTab === 'quests') renderQuests(); }
+  }
+  function renderQuests() {
+    tabBody.innerHTML = '';
+    const dailyTitle = document.createElement('div');
+    dailyTitle.style.cssText = 'font-size:14px; font-weight:800; margin: 4px 0 8px; color:#ffd966;';
+    dailyTitle.textContent = '📅 Ежедневные';
+    tabBody.appendChild(dailyTitle);
+    state.daily.quests.forEach(q => {
+      const el = document.createElement('div');
+      el.className = 'quest' + (q.done && q.claimed ? ' done' : '');
+      const pct = Math.min(100, (q.current / q.target) * 100);
+      el.innerHTML = `<div class="quest-icon">${q.icon}</div><div class="quest-info"><div class="quest-name">${q.name}</div><div class="quest-bar"><div class="quest-fill" style="width: ${pct}%"></div></div><div class="quest-reward">${q.current} / ${q.target} · 🍊 ${fmt(q.reward)}</div></div>${q.done && !q.claimed ? '<button class="quest-claim">Забрать</button>' : (q.claimed ? '<span style="font-size:16px;">✅</span>' : '')}`;
+      tabBody.appendChild(el);
+      if (q.done && !q.claimed) {
+        el.querySelector('.quest-claim').onclick = () => {
+          state.score += q.reward; state.totalEarned += q.reward; q.claimed = true;
+          updateScoreNumber(true); sndBuy(); updateHeader(); checkStage(); save(); renderQuests();
+        };
+      }
+    });
+    const weeklyTitle = document.createElement('div');
+    weeklyTitle.style.cssText = 'font-size:14px; font-weight:800; margin: 16px 0 8px; color:#ff8ac4;';
+    weeklyTitle.textContent = '📆 Недельные';
+    tabBody.appendChild(weeklyTitle);
+    state.weekly.quests.forEach(q => {
+      const el = document.createElement('div');
+      el.className = 'quest' + (q.done && q.claimed ? ' done' : '');
+      const pct = Math.min(100, (q.current / q.target) * 100);
+      el.innerHTML = `<div class="quest-icon">${q.icon}</div><div class="quest-info"><div class="quest-name">${q.name}</div><div class="quest-bar"><div class="quest-fill" style="width: ${pct}%; background: linear-gradient(90deg, #ff8ac4, #b44cff);"></div></div><div class="quest-reward">${q.current} / ${q.target} · 🍊 ${fmt(q.reward)}</div></div>${q.done && !q.claimed ? '<button class="quest-claim">Забрать</button>' : (q.claimed ? '<span style="font-size:16px;">✅</span>' : '')}`;
+      tabBody.appendChild(el);
+      if (q.done && !q.claimed) {
+        el.querySelector('.quest-claim').onclick = () => {
+          state.score += q.reward; state.totalEarned += q.reward; q.claimed = true;
+          updateScoreNumber(true); sndBuy(); updateHeader(); checkStage(); save(); renderQuests();
+        };
+      }
+    });
+  }
+
+  // ============== REBIRTH ==============
+  function getNextRebirthStars() { return state.totalEarned < 100000 ? 0 : Math.floor(Math.sqrt(state.totalEarned / 100000)); }
+  function renderRebirth() {
+    tabBody.innerHTML = '';
+    const potentialStars = getNextRebirthStars();
+    const reqForNext = Math.pow(potentialStars + 1, 2) * 100000;
+    let progPct = 0;
+    if (potentialStars > 0) {
+      const currentReq = Math.pow(potentialStars, 2) * 100000;
+      progPct = Math.min(100, ((state.totalEarned - currentReq) / (reqForNext - currentReq)) * 100);
+    } else progPct = Math.min(100, (state.totalEarned / 100000) * 100);
+
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <div class="rebirth-hero">
+        <div class="rebirth-stars">${state.stars}</div>
+        <div class="rebirth-label">Звёзд всего</div>
+        <div class="rebirth-mult">Множитель: x${getRebirthMultiplier().toFixed(2)}</div>
+      </div>
+      <div class="rebirth-stats">
+        <div class="rebirth-stat"><div class="rebirth-stat-val">${state.rebirths}</div><div class="rebirth-stat-lbl">Перерождений</div></div>
+        <div class="rebirth-stat"><div class="rebirth-stat-val">+${potentialStars}</div><div class="rebirth-stat-lbl">Доступно</div></div>
+      </div>
+      <div class="rebirth-progress" style="margin-top:12px;">
+        <div class="rebirth-progress-line"><span>Прогресс</span><span>${fmt(state.totalEarned)} / ${fmt(reqForNext)}</span></div>
+        <div class="rebirth-bar"><div class="rebirth-bar-fill" style="width: ${progPct}%"></div></div>
+      </div>
+      <button class="rebirth-btn ${potentialStars > 0 ? '' : 'disabled'}" id="doRebirthBtn">${potentialStars > 0 ? '🌟 Переродиться' : 'Нужно 100K'}</button>
+      <div class="rebirth-info">Сбрасывает мандаринки и улучшения, но даёт <b>Звёзды</b>.<br>Каждая звезда = <b>+25%</b> к доходу. Скины и достижения сохраняются!</div>
+    `;
+    tabBody.appendChild(container);
+
+    if (potentialStars > 0) {
+      $('doRebirthBtn').onclick = () => {
+        showModal(`
+          <div class="modal-emoji">🌌</div>
+          <div class="modal-title">Новая жизнь</div>
+          <div class="modal-text">Ты получишь звёзды, но сбросишь прогресс и улучшения.</div>
+          <div class="modal-big">+${potentialStars} ⭐</div>
+        `, [
+          { text: 'Отмена' },
+          { text: 'Переродиться!', primary: true, action: () => {
+            state.stars += potentialStars; state.rebirths++;
+            state.score = 0; state.totalEarned = 0; state.stage = 0; state.levels = {}; state.taps = 0;
+            state.combo = 0; state.doubleChickens = 0;
+            updateDuo(); updateScoreNumber(true); updateStats(); checkStage(); updateHeader(); switchTab('rebirth'); sndRebirth();
+            showToast('ПЕРЕРОЖДЕНИЕ', 'Новая жизнь началась!', 'ach'); save();
+          }}
+        ]);
+      };
+    }
+  }
+
+  // ============== STORY & ACH ==============
+  function renderStory() {
+    tabBody.innerHTML = '';
+    STORY.forEach((s, i) => {
+      const unlocked = state.totalEarned >= STAGES[i].need;
+      const el = document.createElement('div');
+      el.className = 'story-item' + (unlocked ? '' : ' locked');
+      el.innerHTML = `<div class="story-title"><span class="dot"></span>${s.title}</div><div class="story-text">${unlocked ? s.text : '🔒 Откроется на этапе «' + STAGES[i].name + '»'}</div>`;
+      tabBody.appendChild(el);
+    });
+  }
+
+  function checkAchievements() {
+    for (const a of ACHIEVEMENTS) {
+      if (!state.achievements[a.id] && a.check(state)) {
+        state.achievements[a.id] = true;
+        showToast('🏆 ДОСТИЖЕНИЕ', a.icon + ' ' + a.name, 'ach'); sndAch();
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      }
+    }
+  }
+
+  // ============== TABS ==============
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    tabBody.scrollTop = 0; shopBuilt = false;
+    if (tab === 'shop') buildShop();
+    else if (tab === 'story') renderStory();
+    else if (tab === 'rebirth') renderRebirth();
+    else if (tab === 'skins') renderSkins();
+    else if (tab === 'quests') renderQuests();
+    else if (tab === 'casino') renderCasino();
+    else if (tab === 'streak') renderStreak();
+  }
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+  function updateSoundBtn() { soundBtn.textContent = state.soundMuted ? '🔇' : '🔊'; }
+  soundBtn.addEventListener('click', () => { initAudio(); state.soundMuted = !state.soundMuted; updateSoundBtn(); save(); });
+  musicBtn.addEventListener('click', toggleMusic);
+
+  function showModal(html, buttons) {
+    const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+    const modal = document.createElement('div'); modal.className = 'modal'; modal.innerHTML = html;
+    overlay.appendChild(modal); document.body.appendChild(overlay);
+    buttons.forEach(btn => {
+      const b = document.createElement('button');
+      b.className = 'modal-btn' + (btn.primary ? ' primary' : '');
+      b.textContent = btn.text;
+      b.onclick = () => { overlay.remove(); if (btn.action) btn.action(); };
+      modal.appendChild(b);
+    });
+  }
+
+  function checkOffline() {
+    if (!state.lastSeen) return;
+    const elapsedSec = Math.min((Date.now() - state.lastSeen) / 1000, 8 * 3600);
+    const passive = getPassive();
+    if (passive > 0 && elapsedSec > 60) {
+      const earned = Math.floor(passive * elapsedSec);
+      if (earned < 10) return;
+      state.score += earned; state.totalEarned += earned;
+      const h = Math.floor(elapsedSec / 3600), m = Math.floor((elapsedSec % 3600) / 60);
+      const timeStr = h > 0 ? `${h} ч ${m} мин` : `${m} мин`;
+      showModal(`
+        <div class="modal-emoji">🌙</div>
+        <div class="modal-title">Пока тебя не было</div>
+        <div class="modal-text">Василиса и коты работали<br>за ${timeStr}</div>
+        <div class="modal-big">+${fmt(earned)} 🍊</div>
+      `, [{ text:'Забрать!', primary:true }]);
+      sndStage(); updateScoreNumber(true); updateStats(); checkStage(); updateHeader();
+      if (currentTab === 'shop') updateShop();
+    }
+  }
+
+  // ============== GOLDEN ==============
+  function spawnGolden() {
+    if (document.hidden) return;
+    const r = tapZone.getBoundingClientRect();
+    const g = document.createElement('div');
+    g.className = 'golden'; g.textContent = '🍊';
+    g.style.left = (60 + Math.random() * (r.width - 120)) + 'px';
+    g.style.top = (50 + Math.random() * (r.height - 100)) + 'px';
+    g.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation(); g.remove();
+      const bonus = Math.max(150, getBaseTapValue() * 30, getPassive() * 15);
+      state.score += bonus; state.totalEarned += bonus; state.goldenCaught++;
+      startMania(10);
+      showToast('ЗОЛОТАЯ МАНДАРИНКА!', `+${fmt(bonus)} · 🔥 x3 на 10 сек`, 'gold');
+      spawnParticle(e.clientX, e.clientY, '+' + fmt(bonus), '#ffd966', 30); sndGolden();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      updateScoreNumber(true); checkStage(); updateHeader(); updateStats();
+      if (currentTab === 'shop') updateShopThrottled();
+      updateQuestProgress('goldens', 1);
+      checkAchievements();
+    }, { passive: false });
+    tapZone.appendChild(g); sndGolden();
+    setTimeout(() => { if (g.parentNode) g.remove(); }, 4200);
+  }
+  function scheduleGolden() { setTimeout(() => { spawnGolden(); scheduleGolden(); }, 20000 + Math.random() * 15000); }
+
+  // ============== AUTO CLICKER (fixed) ==============
+  let autoClickAcc = 0;
+  let lastTick = Date.now();
+
+  function processAutoClicker() {
+    const now = Date.now();
+    const dt = (now - lastTick) / 1000;
+    lastTick = now;
+    const autoLvl = state.levels['auto_clicker'] || 0;
+    if (autoLvl > 0) {
+      autoClickAcc += dt * autoLvl;
+      if (autoClickAcc >= 1) {
+        const tapsToDo = Math.floor(autoClickAcc);
+        autoClickAcc -= tapsToDo;
+        // FIXED: use base tap value (no combo bonus for auto)
+        const gain = getBaseTapValue() * tapsToDo;
+        state.score += gain;
+        state.totalEarned += gain;
+        const r = tapBtn.getBoundingClientRect();
+        spawnParticle(r.left + r.width/2, r.top + r.height/2, '+' + fmt(gain), '#a78bff', 18);
+        checkStage();
+        if (currentTab === 'shop') updateShopThrottled();
+      }
+    } else {
+      autoClickAcc = 0;
+    }
+  }
+
+  function decayCombo() {
+    if (state.combo > 0 && Date.now() - state.lastTapTime > 2000) {
+      state.combo = 0;
+    }
+  }
+
+  // ============== INIT & LOOP ==============
+  tapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); initAudio(); doTap(e.clientX, e.clientY); }, { passive: false });
+  skillThai.addEventListener('click', (e) => { e.stopPropagation(); useThaiSkill(); });
+  skillBrown.addEventListener('click', (e) => { e.stopPropagation(); useBrownSkill(); });
+
+  setInterval(() => {
+    const p = getPassive();
+    if (p > 0) {
+      state.score += p; state.totalEarned += p;
+      checkStage();
+    }
+    updateScoreNumber(false);
+    updateStats();
+    updateHeader();
+    updateManiaUI();
+    updateSkillsUI();
+    processAutoClicker();
+    decayCombo();
+    checkAchievements();
+    if (currentTab === 'shop') updateShopThrottled();
+  }, 1000);
+
+  setInterval(save, 4000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('pagehide', save);
+
+  // START
+  updateSoundBtn();
+  if (state.musicMuted) musicBtn.textContent = '🎵❌';
+  else { musicBtn.textContent = '🎵'; initAudio(); if(!musicInterval) musicInterval = setInterval(playMusicNote, 2000); }
+
+  checkDailyQuests();
+  updateDuo(); updateHeader(); updateScoreNumber(false); updateStats(); switchTab('shop'); checkAchievements(); checkOffline(); scheduleGolden();
+})();
+</script>
+</body>
+</html>
